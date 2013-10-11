@@ -32,7 +32,7 @@ static void compute(void *_g, int i, int tid)
 	g->k[i] = k;
 }
 
-void kt_for(int n_threads, void (*func)(void*,int,int), void *data, int n_items);
+void kt_for(int n_threads, int n_items, void (*func)(void*,int,int), void *data);
 
 int main(int argc, char *argv[])
 {
@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
 	global.k = calloc(tot, sizeof(int));
 	for (i = 0; i < tot; ++i) global.k[i] = -1;
 	if (type == 0) {
-		kt_for(n_threads, compute, &global, tot);
+		kt_for(n_threads, tot, compute, &global);
 	} else if (type == 2) {
 		#pragma omp parallel for
 		for (i = 0; i < tot; ++i)

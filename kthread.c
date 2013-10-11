@@ -39,7 +39,7 @@ static void *ktf_worker(void *data)
 	pthread_exit(0);
 }
 
-void kt_for(int n_threads, void (*func)(void*,int,int), void *data, int n)
+void kt_for(int n_threads, int n, void (*func)(void*,int,int), void *data)
 {
 	int i;
 	kt_for_t t;
