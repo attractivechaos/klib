@@ -19,8 +19,8 @@ struct kurl_t {
 	CURL *curl;   // cURL easy handle
 	uint8_t *buf; // buffer
 	off_t off0;   // offset of the first byte in the buffer; the actual file offset equals off0 + p_buf
-	int fd;       // file descriptor for a normal file; <0 for a network file
-	int m_buf;    // max buffer size; for a network file, set to CURL_MAX_WRITE_SIZE*2
+	int fd;       // file descriptor for a normal file; <0 for a remote file
+	int m_buf;    // max buffer size; for a remote file, set to CURL_MAX_WRITE_SIZE*2
 	int l_buf;    // length of the buffer; l_buf == 0 iff the input read entirely; l_buf <= m_buf
 	int p_buf;    // file position in the buffer; p_buf <= l_buf
 	int done_reading; // true if we can read nothing from the file; buffer may not be empty even if done_reading is set
@@ -86,7 +86,7 @@ static int fill_buffer(kurl_t *ku) // fill the buffer
 			int maxfd = -1;
 			long curl_to = -1;
 			struct timeval to;
-			// the following adaped from docs/examples/fopen.c 
+			// the following is adaped from docs/examples/fopen.c 
 			to.tv_sec = 10, to.tv_usec = 0; // 10 seconds
 			curl_multi_timeout(ku->multi, &curl_to);
 			if (curl_to >= 0) {
@@ -95,16 +95,16 @@ static int fill_buffer(kurl_t *ku) // fill the buffer
 				else to.tv_usec = (curl_to % 1000) * 1000;
 			}
 			FD_ZERO(&fdr); FD_ZERO(&fdw); FD_ZERO(&fde);
-			curl_multi_fdset(ku->multi, &fdr, &fdw, &fde, &maxfd);
+			curl_multi_fdset(ku->multi, &fdr, &fdw, &fde, &maxfd); // FIXME: check return code
 			if (maxfd >= 0 && (rc = select(maxfd+1, &fdr, &fdw, &fde, &to)) < 0) break;
-			if (maxfd < 0) { // check curl_multi_fdset.3 about why we wait 100ms here
+			if (maxfd < 0) { // check curl_multi_fdset.3 about why we wait for 100ms here
 				struct timespec req, rem;
 				req.tv_sec = 0; req.tv_nsec = 100000000; // this is 100ms
 				nanosleep(&req, &rem);
 			}
-			rc = curl_multi_perform(ku->multi, &n_running);
-		} while (n_running && ku->l_buf < CURL_MAX_WRITE_SIZE);
-		if (ku->l_buf < CURL_MAX_WRITE_SIZE) ku->done_reading = 1;
+			rc = curl_multi_perform(ku->multi, &n_running); // FIXME: check return code
+		} while (n_running && ku->l_buf < ku->m_buf - CURL_MAX_WRITE_SIZE);
+		if (ku->l_buf < ku->m_buf - CURL_MAX_WRITE_SIZE) ku->done_reading = 1;
 	}
 	return ku->l_buf;
 }
@@ -146,7 +146,8 @@ kurl_t *kurl_open(const char *url)
 		curl_easy_setopt(ku->curl, CURLOPT_VERBOSE, 0L);
 		curl_easy_setopt(ku->curl, CURLOPT_WRITEFUNCTION, write_cb);
 	}
-	ku->m_buf = kurl_isfile(ku)? KU_DEF_BUFLEN : CURL_MAX_WRITE_SIZE<<1;
+	if (!kurl_isfile(ku) && ku->m_buf < CURL_MAX_WRITE_SIZE * 2)
+		ku->m_buf = CURL_MAX_WRITE_SIZE * 2; // for remote files, the buffer must be at least 2*CURL_MAX_WRITE_SIZE
 	ku->buf = (uint8_t*)calloc(ku->m_buf, 1);
 	if (prepare(ku) < 0 || fill_buffer(ku) <= 0) {
 		kurl_close(ku);
