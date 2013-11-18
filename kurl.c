@@ -176,7 +176,7 @@ ssize_t kurl_read(kurl_t *ku, void *buf, size_t nbytes)
 	return nbytes - rest;
 }
 
-off_t kurl_seek(kurl_t *ku, off_t offset, int whence)
+off_t kurl_seek(kurl_t *ku, off_t offset, int whence) // FIXME: sometimes when seek() fails, read() will fail as well.
 {
 	off_t new_off = -1, cur_off;
 	int failed = 0;
@@ -233,20 +233,46 @@ int kurl_error(const kurl_t *ku)
 	return ku->err;
 }
 
-int main()
+#ifdef KURL_MAIN
+int main(int argc, char *argv[])
 {
 	kurl_t *f;
-	int i, l, rc;
-	char buf[0x10000];
-//	f = kurl_open("f.c");
-//	f = kurl_open("http://lh3lh3.users.sourceforge.net/");
-	f = kurl_open("https://github.com/");
-	rc = kurl_seek(f, 0x100, SEEK_SET);
-	fprintf(stderr, "rc=%d\n", rc);
-	l = kurl_read(f, buf, 0x10000);
-	for (i = 0; i < l; ++i)
-		putchar(buf[i]);
-	fprintf(stderr, "l=%d,eof=%d,err=%d\n", l, kurl_eof(f), kurl_error(f));
+	int c, l, l_buf = 0x10000;
+	off_t start = 0, rest = -1;
+	uint8_t *buf;
+	char *p;
+	while ((c = getopt(argc, argv, "c:l:")) >= 0) {
+		if (c == 'c') start = strtol(optarg, &p, 0);
+		else if (c == 'l') rest = strtol(optarg, &p, 0);
+	}
+	if (optind == argc) {
+		fprintf(stderr, "Usage: kurl [-c start] [-l length] <url>\n");
+		return 1;
+	}
+	kurl_init();
+	f = kurl_open(argv[optind]);
+	if (f == 0) {
+		fprintf(stderr, "ERROR: fail to open URL\n");
+		return 2;
+	}
+	if (start > 0) {
+		if (kurl_seek(f, start, SEEK_SET) < 0) {
+			kurl_close(f);
+			fprintf(stderr, "ERROR: fail to seek\n");
+			return 3;
+		}
+	}
+	buf = (uint8_t*)calloc(l_buf, 1);
+	while (rest != 0) {
+		int to_read = rest > 0 && rest < l_buf? rest : l_buf;
+		l = kurl_read(f, buf, to_read);
+		if (l == 0) break;
+		fwrite(buf, 1, l, stdout);
+		rest -= l;
+	}
+	free(buf);
 	kurl_close(f);
+	kurl_destroy();
 	return 0;
 }
+#endif
