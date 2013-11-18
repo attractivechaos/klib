@@ -67,9 +67,6 @@ static int fill_buffer(kurl_t *ku) // fill the buffer
 	assert(ku->p_buf == ku->l_buf); // buffer is always used up when fill_buffer() is called; otherwise a bug
 	ku->off0 += ku->l_buf;
 	ku->p_buf = ku->l_buf = 0;
-	// For a normal file, it is not necessary to test ->done_read. For a cURL connection, however,
-	// if we have already read the entire content, this function will be blocked at "select()" below.
-	// Probably there are better means to check if reading is over.
 	if (ku->done_reading) return 0;
 	if (kurl_isfile(ku)) {
 		// The following block is equivalent to "ku->l_buf = read(ku->fd, ku->buf, ku->m_buf)" on Mac.
@@ -90,7 +87,6 @@ static int fill_buffer(kurl_t *ku) // fill the buffer
 			long curl_to = -1;
 			struct timeval to;
 			// the following adaped from docs/examples/fopen.c 
-			FD_ZERO(&fdr); FD_ZERO(&fdw); FD_ZERO(&fde);
 			to.tv_sec = 10, to.tv_usec = 0; // 10 seconds
 			curl_multi_timeout(ku->multi, &curl_to);
 			if (curl_to >= 0) {
@@ -98,10 +94,15 @@ static int fill_buffer(kurl_t *ku) // fill the buffer
 				if (to.tv_sec > 1) to.tv_sec = 1;
 				else to.tv_usec = (curl_to % 1000) * 1000;
 			}
+			FD_ZERO(&fdr); FD_ZERO(&fdw); FD_ZERO(&fde);
 			curl_multi_fdset(ku->multi, &fdr, &fdw, &fde, &maxfd);
-			rc = select(maxfd+1, &fdr, &fdw, &fde, &to);
-			if (rc >= 0) rc = curl_multi_perform(ku->multi, &n_running);
-			else break;
+			if (maxfd >= 0 && (rc = select(maxfd+1, &fdr, &fdw, &fde, &to)) < 0) break;
+			if (maxfd < 0) { // check curl_multi_fdset.3 about why we wait 100ms here
+				struct timespec req, rem;
+				req.tv_sec = 0; req.tv_nsec = 100000000; // this is 100ms
+				nanosleep(&req, &rem);
+			}
+			rc = curl_multi_perform(ku->multi, &n_running);
 		} while (n_running && ku->l_buf < CURL_MAX_WRITE_SIZE);
 		if (ku->l_buf < CURL_MAX_WRITE_SIZE) ku->done_reading = 1;
 	}
