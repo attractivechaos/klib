@@ -18,7 +18,7 @@ typedef struct {
 extern "C" {
 #endif
 
-void kurl_init(void);
+int kurl_init(void);
 void kurl_destroy(void);
 
 kurl_t *kurl_open(const char *url, kurl_opt_t *opt);
@@ -35,6 +35,18 @@ int kurl_error(const kurl_t *ku);
 
 #ifdef __cplusplus
 }
+#endif
+
+#ifndef KNETFILE_H
+#define KNETFILE_H
+#define knet_open(fn, mode) kurl_open(fn, 0)
+#define knet_dopen(fd, mode) kurl_dopen(fd)
+#define knet_close(fp) kurl_close(fp)
+#define knet_seek(fp, off, whence) kurl_seek(fp, off, whence)
+#define knet_tell(fp) kurl_tell(fp)
+#define knet_fileno(fp) kurl_fileno(fp)
+#define knet_win32_init() kurl_init()
+#define knet_win32_destroy() kurl_destroy()
 #endif
 
 #endif

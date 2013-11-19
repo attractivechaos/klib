@@ -27,9 +27,9 @@ struct kurl_t {
 	int err;      // error code
 };
 
-void kurl_init(void) // required for SSL and win32 socket; NOT thread safe
+int kurl_init(void) // required for SSL and win32 socket; NOT thread safe
 {
-	curl_global_init(CURL_GLOBAL_DEFAULT);
+	return curl_global_init(CURL_GLOBAL_DEFAULT);
 }
 
 void kurl_destroy(void)
