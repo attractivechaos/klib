@@ -22,7 +22,7 @@ int kurl_init(void);
 void kurl_destroy(void);
 
 kurl_t *kurl_open(const char *url, kurl_opt_t *opt);
-kurl_t *kurl_dopen(const char *url, int fd);
+kurl_t *kurl_dopen(int fd);
 int kurl_close(kurl_t *ku);
 ssize_t kurl_read(kurl_t *ku, void *buf, size_t nbytes);
 off_t kurl_seek(kurl_t *ku, off_t offset, int whence);

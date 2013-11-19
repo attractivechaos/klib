@@ -159,7 +159,7 @@ kurl_t *kurl_open(const char *url, kurl_opt_t *opt)
 	return ku;
 }
 
-kurl_t *kurl_dopen(const char *url, int fd)
+kurl_t *kurl_dopen(int fd)
 {
 	kurl_t *ku;
 	ku = (kurl_t*)calloc(1, sizeof(kurl_t));
