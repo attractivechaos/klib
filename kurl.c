@@ -20,7 +20,7 @@ struct kurl_t {
 	uint8_t *buf; // buffer
 	off_t off0;   // offset of the first byte in the buffer; the actual file offset equals off0 + p_buf
 	int fd;       // file descriptor for a normal file; <0 for a remote file
-	int m_buf;    // max buffer size; for a remote file, set to CURL_MAX_WRITE_SIZE*2
+	int m_buf;    // max buffer size; for a remote file, at least CURL_MAX_WRITE_SIZE*2
 	int l_buf;    // length of the buffer; l_buf == 0 iff the input read entirely; l_buf <= m_buf
 	int p_buf;    // file position in the buffer; p_buf <= l_buf
 	int done_reading; // true if we can read nothing from the file; buffer may not be empty even if done_reading is set
@@ -122,7 +122,7 @@ int kurl_close(kurl_t *ku)
 	return 0;
 }
 
-kurl_t *kurl_open(const char *url)
+kurl_t *kurl_open(const char *url, kurl_opt_t *opt)
 {
 	const char *p, *q;
 	kurl_t *ku;
@@ -145,7 +145,10 @@ kurl_t *kurl_open(const char *url)
 		curl_easy_setopt(ku->curl, CURLOPT_WRITEDATA, ku);
 		curl_easy_setopt(ku->curl, CURLOPT_VERBOSE, 0L);
 		curl_easy_setopt(ku->curl, CURLOPT_WRITEFUNCTION, write_cb);
+		if (opt && opt->usrpwd)
+			curl_easy_setopt(ku->curl, CURLOPT_USERPWD, opt->usrpwd);
 	}
+	ku->m_buf = KU_DEF_BUFLEN;
 	if (!kurl_isfile(ku) && ku->m_buf < CURL_MAX_WRITE_SIZE * 2)
 		ku->m_buf = CURL_MAX_WRITE_SIZE * 2; // for remote files, the buffer must be at least 2*CURL_MAX_WRITE_SIZE
 	ku->buf = (uint8_t*)calloc(ku->m_buf, 1);
@@ -154,6 +157,34 @@ kurl_t *kurl_open(const char *url)
 		return 0;
 	}
 	return ku;
+}
+
+kurl_t *kurl_dopen(const char *url, int fd)
+{
+	kurl_t *ku;
+	ku = (kurl_t*)calloc(1, sizeof(kurl_t));
+	ku->fd = fd;
+	ku->m_buf = KU_DEF_BUFLEN;
+	ku->buf = (uint8_t*)calloc(ku->m_buf, 1);
+	if (prepare(ku) < 0 || fill_buffer(ku) <= 0) {
+		kurl_close(ku);
+		return 0;
+	}
+	return ku;
+}
+
+#ifndef kroundup32
+#define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
+#endif
+
+int kurl_buflen(kurl_t *ku, int len)
+{
+	if (len <= 0 || len < ku->l_buf) return ku->m_buf;
+	if (!kurl_isfile(ku) && len < CURL_MAX_WRITE_SIZE * 2) return ku->m_buf;
+	ku->m_buf = len;
+	kroundup32(ku->m_buf);
+	ku->buf = (uint8_t*)realloc(ku->buf, ku->m_buf);
+	return ku->m_buf;
 }
 
 ssize_t kurl_read(kurl_t *ku, void *buf, size_t nbytes)
@@ -243,16 +274,19 @@ int main(int argc, char *argv[])
 	off_t start = 0, rest = -1;
 	uint8_t *buf;
 	char *p;
-	while ((c = getopt(argc, argv, "c:l:")) >= 0) {
+	kurl_opt_t opt;
+	memset(&opt, 0, sizeof(kurl_opt_t));
+	while ((c = getopt(argc, argv, "c:l:u:")) >= 0) {
 		if (c == 'c') start = strtol(optarg, &p, 0);
 		else if (c == 'l') rest = strtol(optarg, &p, 0);
+		else if (c == 'u') opt.usrpwd = optarg;
 	}
 	if (optind == argc) {
 		fprintf(stderr, "Usage: kurl [-c start] [-l length] <url>\n");
 		return 1;
 	}
 	kurl_init();
-	f = kurl_open(argv[optind]);
+	f = kurl_open(argv[optind], &opt);
 	if (f == 0) {
 		fprintf(stderr, "ERROR: fail to open URL\n");
 		return 2;
