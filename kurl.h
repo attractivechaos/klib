@@ -6,6 +6,7 @@
 #define KURL_NULL       1
 #define KURL_INV_WHENCE 2
 #define KURL_SEEK_OUT   3
+#define KURL_NO_MEM     4
 
 struct kurl_t;
 typedef struct kurl_t kurl_t;
@@ -43,6 +44,7 @@ typedef kurl_t knetFile;
 #define knet_open(fn, mode) kurl_open(fn, 0)
 #define knet_dopen(fd, mode) kurl_dopen(fd)
 #define knet_close(fp) kurl_close(fp)
+#define knet_read(fp, buf, len) kurl_read(fp, buf, len)
 #define knet_seek(fp, off, whence) kurl_seek(fp, off, whence)
 #define knet_tell(fp) kurl_tell(fp)
 #define knet_fileno(fp) kurl_fileno(fp)

@@ -14,6 +14,10 @@
 
 #define kurl_isfile(u) ((u)->fd >= 0)
 
+#ifndef kroundup32
+#define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
+#endif
+
 struct kurl_t {
 	CURLM *multi; // cURL multi handler
 	CURL *curl;   // cURL easy handle
@@ -56,7 +60,15 @@ static size_t write_cb(char *ptr, size_t size, size_t nmemb, void *data) // call
 {
 	kurl_t *ku = (kurl_t*)data;
 	ssize_t nbytes = size * nmemb;
-	assert(nbytes + ku->l_buf < ku->m_buf);
+	if (nbytes + ku->l_buf > ku->m_buf) {
+		ku->m_buf = nbytes + ku->l_buf;
+		kroundup32(ku->m_buf);
+		ku->buf = (uint8_t*)realloc(ku->buf, ku->m_buf);
+		if (ku->buf == 0) {
+			ku->err = KURL_NO_MEM;
+			return 0;
+		}
+	}
 	memcpy(ku->buf + ku->l_buf, ptr, nbytes);
 	ku->l_buf += nbytes;
 	return nbytes;
@@ -103,8 +115,8 @@ static int fill_buffer(kurl_t *ku) // fill the buffer
 				nanosleep(&req, &rem);
 			}
 			rc = curl_multi_perform(ku->multi, &n_running); // FIXME: check return code
-		} while (n_running && ku->l_buf < ku->m_buf - CURL_MAX_WRITE_SIZE);
-		if (ku->l_buf < ku->m_buf - CURL_MAX_WRITE_SIZE) ku->done_reading = 1;
+		} while (n_running && ku->l_buf < CURL_MAX_WRITE_SIZE);
+		if (ku->l_buf < CURL_MAX_WRITE_SIZE) ku->done_reading = 1;
 	}
 	return ku->l_buf;
 }
@@ -172,10 +184,6 @@ kurl_t *kurl_dopen(int fd)
 	}
 	return ku;
 }
-
-#ifndef kroundup32
-#define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
-#endif
 
 int kurl_buflen(kurl_t *ku, int len)
 {
