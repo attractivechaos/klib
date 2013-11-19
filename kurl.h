@@ -39,6 +39,7 @@ int kurl_error(const kurl_t *ku);
 
 #ifndef KNETFILE_H
 #define KNETFILE_H
+typedef kurl_t knetFile
 #define knet_open(fn, mode) kurl_open(fn, 0)
 #define knet_dopen(fd, mode) kurl_dopen(fd)
 #define knet_close(fp) kurl_close(fp)
