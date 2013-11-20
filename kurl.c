@@ -156,6 +156,7 @@ kurl_t *kurl_open(const char *url, kurl_opt_t *opt)
 		curl_easy_setopt(ku->curl, CURLOPT_URL, url);
 		curl_easy_setopt(ku->curl, CURLOPT_WRITEDATA, ku);
 		curl_easy_setopt(ku->curl, CURLOPT_VERBOSE, 0L);
+		curl_easy_setopt(ku->curl, CURLOPT_NOSIGNAL, 1L);
 		curl_easy_setopt(ku->curl, CURLOPT_WRITEFUNCTION, write_cb);
 		if (opt && opt->usrpwd)
 			curl_easy_setopt(ku->curl, CURLOPT_USERPWD, opt->usrpwd);
