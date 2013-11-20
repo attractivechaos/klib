@@ -9,7 +9,7 @@
 #include <curl/curl.h>
 #include "kurl.h"
 
-#define KU_DEF_BUFLEN   0x10000
+#define KU_DEF_BUFLEN   0x8000
 #define KU_MAX_SKIP     (KU_DEF_BUFLEN<<1) // if seek step is smaller than this, skip
 
 #define kurl_isfile(u) ((u)->fd >= 0)
@@ -24,7 +24,7 @@ struct kurl_t {
 	uint8_t *buf; // buffer
 	off_t off0;   // offset of the first byte in the buffer; the actual file offset equals off0 + p_buf
 	int fd;       // file descriptor for a normal file; <0 for a remote file
-	int m_buf;    // max buffer size; for a remote file, at least CURL_MAX_WRITE_SIZE*2
+	int m_buf;    // max buffer size; for a remote file, CURL_MAX_WRITE_SIZE*2 is recommended
 	int l_buf;    // length of the buffer; l_buf == 0 iff the input read entirely; l_buf <= m_buf
 	int p_buf;    // file position in the buffer; p_buf <= l_buf
 	int done_reading; // true if we can read nothing from the file; buffer may not be empty even if done_reading is set
