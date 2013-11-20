@@ -60,15 +60,8 @@ static size_t write_cb(char *ptr, size_t size, size_t nmemb, void *data) // call
 {
 	kurl_t *ku = (kurl_t*)data;
 	ssize_t nbytes = size * nmemb;
-	if (nbytes + ku->l_buf > ku->m_buf) {
-		ku->m_buf = nbytes + ku->l_buf;
-		kroundup32(ku->m_buf);
-		ku->buf = (uint8_t*)realloc(ku->buf, ku->m_buf);
-		if (ku->buf == 0) {
-			ku->err = KURL_NO_MEM;
-			return 0;
-		}
-	}
+	if (nbytes + ku->l_buf > ku->m_buf)
+		return CURL_WRITEFUNC_PAUSE;
 	memcpy(ku->buf + ku->l_buf, ptr, nbytes);
 	ku->l_buf += nbytes;
 	return nbytes;
@@ -114,9 +107,10 @@ static int fill_buffer(kurl_t *ku) // fill the buffer
 				req.tv_sec = 0; req.tv_nsec = 100000000; // this is 100ms
 				nanosleep(&req, &rem);
 			}
+			curl_easy_pause(ku->curl, CURLPAUSE_CONT);
 			rc = curl_multi_perform(ku->multi, &n_running); // FIXME: check return code
-		} while (n_running && ku->l_buf < CURL_MAX_WRITE_SIZE);
-		if (ku->l_buf < CURL_MAX_WRITE_SIZE) ku->done_reading = 1;
+		} while (n_running && ku->l_buf < ku->m_buf - CURL_MAX_WRITE_SIZE);
+		if (ku->l_buf < ku->m_buf - CURL_MAX_WRITE_SIZE) ku->done_reading = 1;
 	}
 	return ku->l_buf;
 }
@@ -163,7 +157,7 @@ kurl_t *kurl_open(const char *url, kurl_opt_t *opt)
 	}
 	ku->m_buf = KU_DEF_BUFLEN;
 	if (!kurl_isfile(ku) && ku->m_buf < CURL_MAX_WRITE_SIZE * 2)
-		ku->m_buf = CURL_MAX_WRITE_SIZE * 2; // for remote files, the buffer must be at least 2*CURL_MAX_WRITE_SIZE
+		ku->m_buf = CURL_MAX_WRITE_SIZE * 2; // for remote files, the buffer set to 2*CURL_MAX_WRITE_SIZE
 	ku->buf = (uint8_t*)calloc(ku->m_buf, 1);
 	if (prepare(ku) < 0 || fill_buffer(ku) <= 0) {
 		kurl_close(ku);
