@@ -29,7 +29,12 @@ struct kurl_t {
 	int p_buf;    // file position in the buffer; p_buf <= l_buf
 	int done_reading; // true if we can read nothing from the file; buffer may not be empty even if done_reading is set
 	int err;      // error code
+	struct curl_slist *hdr;
 };
+
+typedef struct {
+	char *url, *date, *auth;
+} s3aux_t;
 
 int kurl_init(void) // required for SSL and win32 socket; NOT thread safe
 {
@@ -122,6 +127,7 @@ int kurl_close(kurl_t *ku)
 		curl_multi_remove_handle(ku->multi, ku->curl);
 		curl_easy_cleanup(ku->curl);
 		curl_multi_cleanup(ku->multi);
+		if (ku->hdr) curl_slist_free_all(ku->hdr);
 	} else close(ku->fd);
 	free(ku->buf);
 	free(ku);
@@ -130,6 +136,7 @@ int kurl_close(kurl_t *ku)
 
 kurl_t *kurl_open(const char *url, kurl_opt_t *opt)
 {
+	extern s3aux_t s3_parse(const char *url, const char *_id, const char *_secret, const char *fn);
 	const char *p, *q;
 	kurl_t *ku;
 	int fd = -1, is_file = 1;
@@ -147,7 +154,16 @@ kurl_t *kurl_open(const char *url, kurl_opt_t *opt)
 	if (!kurl_isfile(ku)) {
 		ku->multi = curl_multi_init();
 		ku->curl  = curl_easy_init();
-		curl_easy_setopt(ku->curl, CURLOPT_URL, url);
+		if (strstr(url, "s3://") == url) {
+			s3aux_t a;
+			struct curl_slist *slist = 0;
+			a = s3_parse(url, 0, 0, 0);
+			ku->hdr = curl_slist_append(ku->hdr, a.date);
+			ku->hdr = curl_slist_append(ku->hdr, a.auth);
+			curl_easy_setopt(ku->curl, CURLOPT_URL, a.url);
+			curl_easy_setopt(ku->curl, CURLOPT_HTTPHEADER, ku->hdr);
+			free(a.date); free(a.auth); free(a.url);
+		} else curl_easy_setopt(ku->curl, CURLOPT_URL, url);
 		curl_easy_setopt(ku->curl, CURLOPT_WRITEDATA, ku);
 		curl_easy_setopt(ku->curl, CURLOPT_VERBOSE, 0L);
 		curl_easy_setopt(ku->curl, CURLOPT_NOSIGNAL, 1L);
@@ -269,6 +285,129 @@ int kurl_error(const kurl_t *ku)
 	return ku->err;
 }
 
+/*******************
+ *** S3 protocol ***
+ *******************/
+
+#include <time.h>
+#include <ctype.h>
+#include <openssl/hmac.h> // Better reimplement HMAC-SHA1 to drop the dependency. Not that hard.
+
+static void s3_sign(const char *key, const char *data, char out[29])
+{
+	const char *b64tab = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+	uint8_t *digest;
+	int i, j, rest;
+	digest = HMAC(EVP_sha1(), key, strlen(key), (unsigned char*)data, strlen(data), 0, 0);
+	for (j = i = 0, rest = 8; i < 20; ++j) { // base64 encoding
+		if (rest <= 6) {
+			int next = i < 19? digest[i+1] : 0;
+			out[j] = b64tab[(int)(digest[i] << (6-rest) & 0x3f) | next >> (rest+2)], ++i, rest += 2;
+		} else out[j] = b64tab[(int)digest[i] >> (rest-6) & 0x3f], rest -= 6;
+	}
+	out[j++] = '='; out[j] = 0; // SHA1 digest always has 160 bits, or 20 bytes. We need one '=' at the end.
+}
+
+static char *s3_read_awssecret(const char *fn)
+{
+	char *p, *secret, buf[128], *path;
+	FILE *fp;
+	int l;
+	if (fn == 0) {
+		char *home;
+		home = getenv("HOME");
+		if (home == 0) return 0;
+		l = strlen(home) + 12;
+		path = (char*)malloc(strlen(home) + 12);
+		strcat(strcpy(path, home), "/.awssecret");
+	} else path = (char*)fn;
+	fp = fopen(path, "r");
+	if (path != fn) free(path);
+	if (fp == 0) return 0;
+	l = fread(buf, 1, 127, fp);
+	fclose(fp);
+	buf[l] = 0;
+	for (p = buf; *p != 0 && *p != '\n'; ++p);
+	if (*p == 0) return 0;
+	*p = 0; secret = p + 1;
+	for (++p; *p != 0 && *p != '\n'; ++p);
+	*p = 0;
+	l = p - buf + 1;
+	p = (char*)malloc(l);
+	memcpy(p, buf, l);
+	return p;
+}
+
+typedef struct { int l, m; char *s; } kstring_t;
+
+static inline int kputsn(const char *p, int l, kstring_t *s)
+{
+	if (s->l + l + 1 >= s->m) {
+		s->m = s->l + l + 2;
+		kroundup32(s->m);
+		s->s = (char*)realloc(s->s, s->m);
+	}
+	memcpy(s->s + s->l, p, l);
+	s->l += l;
+	s->s[s->l] = 0;
+	return l;
+}
+
+s3aux_t s3_parse(const char *url, const char *_id, const char *_secret, const char *fn)
+{
+	const char *id, *secret, *bucket, *obj;
+	char *id_secret = 0, date[64], sig[29];
+	time_t t;
+	struct tm tmt;
+	s3aux_t a = {0,0};
+	kstring_t str = {0,0,0};
+	// parse URL
+	if (strstr(url, "s3://") != url) return a;
+	bucket = url + 5;
+	for (obj = bucket; *obj && *obj != '/'; ++obj);
+	if (*obj == 0) return a; // no object
+	// acquire AWS credential and time
+	if (_id == 0 || _secret == 0) {
+		id_secret = s3_read_awssecret(fn);
+		if (id_secret == 0) return a; // fail to read the AWS credential
+		id = id_secret;
+		secret = id_secret + strlen(id) + 1;
+	} else id = _id, secret = _secret;
+	// compose URL for curl
+	kputsn("https://", 8, &str);
+	kputsn(bucket, obj - bucket, &str);
+	kputsn(".s3.amazonaws.com", 17, &str);
+	kputsn(obj, strlen(obj), &str);
+	a.url = str.s;
+	// compose the Date line
+	str.l = str.m = 0; str.s = 0;
+	t = time(0);
+	strftime(date, 64, "%a, %d %b %Y %H:%M:%S +0000", gmtime_r(&t, &tmt));
+	kputsn("Date: ", 6, &str);
+	kputsn(date, strlen(date), &str);
+	a.date = str.s;
+	// compose the string to sign and sign it
+	str.l = str.m = 0; str.s = 0;
+	kputsn("GET\n\n\n", 6, &str);
+	kputsn(date, strlen(date), &str);
+	kputsn("\n", 1, &str);
+	kputsn(bucket-1, strlen(bucket-1), &str);
+	s3_sign(secret, str.s, sig);
+	// compose the Authorization line
+	str.l = 0;
+	kputsn("Authorization: AWS ", 19, &str);
+	kputsn(id, strlen(id), &str);
+	kputsn(":", 1, &str);
+	kputsn(sig, strlen(sig), &str);
+	a.auth = str.s;
+//	printf("curl -H '%s' -H '%s' %s\n", a.date, a.auth, a.url);
+	return a;
+}
+
+/*********************
+ *** Main function ***
+ *********************/
+
 #ifdef KURL_MAIN
 int main(int argc, char *argv[])
 {
@@ -278,6 +417,9 @@ int main(int argc, char *argv[])
 	uint8_t *buf;
 	char *p;
 	kurl_opt_t opt;
+
+//	s3_parse("s3://lh3test/44X.bam.bai", 0, 0, 0); return 0;
+
 	memset(&opt, 0, sizeof(kurl_opt_t));
 	while ((c = getopt(argc, argv, "c:l:u:")) >= 0) {
 		if (c == 'c') start = strtol(optarg, &p, 0);
