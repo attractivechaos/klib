@@ -55,7 +55,7 @@ static int prepare(kurl_t *ku)
 	if (kurl_isfile(ku)) {
 		if (ku->off0 > 0 && lseek(ku->fd, ku->off0, SEEK_SET) != ku->off0)
 			return -1;
-	} else {
+	} else { // FIXME: for S3, we need to re-authorize
 		int rc;
 		rc = curl_multi_remove_handle(ku->multi, ku->curl);
 		rc = curl_easy_setopt(ku->curl, CURLOPT_RESUME_FROM, ku->off0);
