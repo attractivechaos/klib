@@ -9,6 +9,10 @@
 #include <curl/curl.h>
 #include "kurl.h"
 
+/**********************
+ *** Core kurl APIs ***
+ **********************/
+
 #define KU_DEF_BUFLEN   0x8000
 #define KU_MAX_SKIP     (KU_DEF_BUFLEN<<1) // if seek step is smaller than this, skip
 
@@ -156,7 +160,6 @@ kurl_t *kurl_open(const char *url, kurl_opt_t *opt)
 		ku->curl  = curl_easy_init();
 		if (strstr(url, "s3://") == url) {
 			s3aux_t a;
-			struct curl_slist *slist = 0;
 			a = s3_parse(url, (opt? opt->s3keyid : 0), (opt? opt->s3secretkey : 0), (opt? opt->s3key_fn : 0));
 			if (a.url == 0 || a.date == 0 || a.auth == 0) {
 				kurl_close(ku);
@@ -287,20 +290,135 @@ int kurl_error(const kurl_t *ku)
 	return ku->err;
 }
 
+/*****************
+ *** HMAC-SHA1 ***
+ *****************/
+
+/* This code is public-domain - it is based on libcrypt placed in the public domain by Wei Dai and other contributors. */
+
+#define HASH_LENGTH 20
+#define BLOCK_LENGTH 64
+
+typedef struct sha1nfo {
+	union { uint8_t b[BLOCK_LENGTH]; uint32_t w[BLOCK_LENGTH/4]; } buf;
+	uint8_t bufOffset;
+	union { uint8_t b[HASH_LENGTH]; uint32_t w[HASH_LENGTH/4]; } state;
+	uint32_t byteCount;
+	uint8_t keyBuffer[BLOCK_LENGTH];
+	uint8_t innerHash[HASH_LENGTH];
+} sha1nfo;
+
+void sha1_init(sha1nfo *s)
+{
+	const uint8_t table[] = { 0x01,0x23,0x45,0x67, 0x89,0xab,0xcd,0xef, 0xfe,0xdc,0xba,0x98, 0x76,0x54,0x32,0x10, 0xf0,0xe1,0xd2,0xc3 };
+	memcpy(s->state.b, table, HASH_LENGTH);
+	s->byteCount = 0;
+	s->bufOffset = 0;
+}
+
+#define rol32(value, bits) (((value) << (bits)) | ((value) >> (32 - (bits))))
+
+static void sha1_hashBlock(sha1nfo *s)
+{
+	uint32_t i, t, a = s->state.w[0], b = s->state.w[1], c = s->state.w[2], d = s->state.w[3], e = s->state.w[4];
+	for (i = 0; i < 80; i++) {
+		if (i >= 16) {
+			t = s->buf.w[(i+13)&15] ^ s->buf.w[(i+8)&15] ^ s->buf.w[(i+2)&15] ^ s->buf.w[i&15];
+			s->buf.w[i&15] = rol32(t, 1);
+		}
+		if (i < 20)      t = 0x5a827999 + (d ^ (b & (c ^ d)));
+		else if (i < 40) t = 0x6ed9eba1 + (b ^ c ^ d);
+		else if (i < 60) t = 0x8f1bbcdc + ((b & c) | (d & (b | c)));
+		else             t = 0xca62c1d6 + (b ^ c ^ d);
+		t += rol32(a, 5) + e + s->buf.w[i&15];
+		e = d; d = c; c = rol32(b, 30); b = a; a = t;
+	}
+	s->state.w[0] += a; s->state.w[1] += b; s->state.w[2] += c; s->state.w[3] += d; s->state.w[4] += e;
+}
+
+static inline void sha1_add(sha1nfo *s, uint8_t data)
+{
+	s->buf.b[s->bufOffset ^ 3] = data;
+	if (++s->bufOffset == BLOCK_LENGTH) {
+		sha1_hashBlock(s);
+		s->bufOffset = 0;
+	}
+}
+
+void sha1_write1(sha1nfo *s, uint8_t data)
+{
+	++s->byteCount;
+	sha1_add(s, data);
+}
+
+void sha1_write(sha1nfo *s, const char *data, size_t len)
+{
+	while (len--) sha1_write1(s, (uint8_t)*data++);
+}
+
+const uint8_t *sha1_final(sha1nfo *s)
+{
+	int i;
+	sha1_add(s, 0x80);
+	while (s->bufOffset != 56) sha1_add(s, 0);
+	sha1_add(s, 0);
+	sha1_add(s, 0);
+	sha1_add(s, 0);
+	sha1_add(s, s->byteCount >> 29);
+	sha1_add(s, s->byteCount >> 21);
+	sha1_add(s, s->byteCount >> 13);
+	sha1_add(s, s->byteCount >> 5);
+	sha1_add(s, s->byteCount << 3);
+	for (i = 0; i < 5; ++i) {
+		uint32_t a = s->state.w[i];
+		s->state.w[i] = a<<24 | (a<<8&0x00ff0000) | (a>>8&0x0000ff00) | a>>24;
+	}
+	return s->state.b;
+}
+
+#define HMAC_IPAD 0x36
+#define HMAC_OPAD 0x5c
+
+void sha1_init_hmac(sha1nfo *s, const uint8_t* key, int l_key)
+{
+	uint8_t i;
+	memset(s->keyBuffer, 0, BLOCK_LENGTH);
+	if (l_key > BLOCK_LENGTH) {
+		sha1_init(s);
+		while (l_key--) sha1_write1(s, *key++);
+		memcpy(s->keyBuffer, sha1_final(s), HASH_LENGTH);
+	} else memcpy(s->keyBuffer, key, l_key);
+	sha1_init(s);
+	for (i = 0; i < BLOCK_LENGTH; ++i)
+		sha1_write1(s, s->keyBuffer[i] ^ HMAC_IPAD);
+}
+
+const uint8_t *sha1_final_hmac(sha1nfo *s)
+{
+	uint8_t i;
+	memcpy(s->innerHash, sha1_final(s), HASH_LENGTH);
+	sha1_init(s);
+	for (i = 0; i < BLOCK_LENGTH; ++i) sha1_write1(s, s->keyBuffer[i] ^ HMAC_OPAD);
+	for (i = 0; i < HASH_LENGTH; ++i) sha1_write1(s, s->innerHash[i]);
+	return sha1_final(s);
+}
+
 /*******************
  *** S3 protocol ***
  *******************/
 
 #include <time.h>
 #include <ctype.h>
-#include <openssl/hmac.h> // Better reimplement HMAC-SHA1 to drop the dependency. Not that hard.
 
 static void s3_sign(const char *key, const char *data, char out[29])
 {
 	const char *b64tab = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-	uint8_t *digest;
+	const uint8_t *digest;
 	int i, j, rest;
-	digest = HMAC(EVP_sha1(), key, strlen(key), (unsigned char*)data, strlen(data), 0, 0);
+	sha1nfo s;
+	sha1_init_hmac(&s, (uint8_t*)key, strlen(key));
+	sha1_write(&s, data, strlen(data));
+	digest = sha1_final_hmac(&s);
 	for (j = i = 0, rest = 8; i < 20; ++j) { // base64 encoding
 		if (rest <= 6) {
 			int next = i < 19? digest[i+1] : 0;
@@ -355,7 +473,7 @@ static inline int kputsn(const char *p, int l, kstring_t *s)
 	return l;
 }
 
-s3aux_t s3_parse(const char *url, const char *_id, const char *_secret, const char *fn)
+s3aux_t s3_parse(const char *url, const char *_id, const char *_secret, const char *fn_secret)
 {
 	const char *id, *secret, *bucket, *obj;
 	char *id_secret = 0, date[64], sig[29];
@@ -370,7 +488,7 @@ s3aux_t s3_parse(const char *url, const char *_id, const char *_secret, const ch
 	if (*obj == 0) return a; // no object
 	// acquire AWS credential and time
 	if (_id == 0 || _secret == 0) {
-		id_secret = s3_read_awssecret(fn);
+		id_secret = s3_read_awssecret(fn_secret);
 		if (id_secret == 0) return a; // fail to read the AWS credential
 		id = id_secret;
 		secret = id_secret + strlen(id) + 1;
@@ -419,8 +537,6 @@ int main(int argc, char *argv[])
 	uint8_t *buf;
 	char *p;
 	kurl_opt_t opt;
-
-//	s3_parse("s3://lh3test/44X.bam.bai", 0, 0, 0); return 0;
 
 	memset(&opt, 0, sizeof(kurl_opt_t));
 	while ((c = getopt(argc, argv, "c:l:a:")) >= 0) {
