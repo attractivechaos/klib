@@ -157,7 +157,11 @@ kurl_t *kurl_open(const char *url, kurl_opt_t *opt)
 		if (strstr(url, "s3://") == url) {
 			s3aux_t a;
 			struct curl_slist *slist = 0;
-			a = s3_parse(url, 0, 0, 0);
+			a = s3_parse(url, (opt? opt->s3keyid : 0), (opt? opt->s3secretkey : 0), (opt? opt->s3key_fn : 0));
+			if (a.url == 0 || a.date == 0 || a.auth == 0) {
+				kurl_close(ku);
+				return 0;
+			}
 			ku->hdr = curl_slist_append(ku->hdr, a.date);
 			ku->hdr = curl_slist_append(ku->hdr, a.auth);
 			curl_easy_setopt(ku->curl, CURLOPT_URL, a.url);
@@ -168,8 +172,6 @@ kurl_t *kurl_open(const char *url, kurl_opt_t *opt)
 		curl_easy_setopt(ku->curl, CURLOPT_VERBOSE, 0L);
 		curl_easy_setopt(ku->curl, CURLOPT_NOSIGNAL, 1L);
 		curl_easy_setopt(ku->curl, CURLOPT_WRITEFUNCTION, write_cb);
-		if (opt && opt->usrpwd)
-			curl_easy_setopt(ku->curl, CURLOPT_USERPWD, opt->usrpwd);
 	}
 	ku->m_buf = KU_DEF_BUFLEN;
 	if (!kurl_isfile(ku) && ku->m_buf < CURL_MAX_WRITE_SIZE * 2)
@@ -421,10 +423,10 @@ int main(int argc, char *argv[])
 //	s3_parse("s3://lh3test/44X.bam.bai", 0, 0, 0); return 0;
 
 	memset(&opt, 0, sizeof(kurl_opt_t));
-	while ((c = getopt(argc, argv, "c:l:u:")) >= 0) {
+	while ((c = getopt(argc, argv, "c:l:a:")) >= 0) {
 		if (c == 'c') start = strtol(optarg, &p, 0);
 		else if (c == 'l') rest = strtol(optarg, &p, 0);
-		else if (c == 'u') opt.usrpwd = optarg;
+		else if (c == 'a') opt.s3key_fn = optarg;
 	}
 	if (optind == argc) {
 		fprintf(stderr, "Usage: kurl [-c start] [-l length] <url>\n");
