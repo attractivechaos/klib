@@ -53,7 +53,7 @@ void kurl_destroy(void)
 static int prepare(kurl_t *ku)
 {
 	if (kurl_isfile(ku)) {
-		if (ku->off0 > 0 && lseek(ku->fd, ku->off0, SEEK_SET) != ku->off0)
+		if (lseek(ku->fd, ku->off0, SEEK_SET) != ku->off0)
 			return -1;
 	} else { // FIXME: for S3, we need to re-authorize
 		int rc;
@@ -143,7 +143,7 @@ kurl_t *kurl_open(const char *url, kurl_opt_t *opt)
 	extern s3aux_t s3_parse(const char *url, const char *_id, const char *_secret, const char *fn);
 	const char *p, *q;
 	kurl_t *ku;
-	int fd = -1, is_file = 1;
+	int fd = -1, is_file = 1, failed = 0;
 
 	p = strstr(url, "://");
 	if (p && *p) {
@@ -180,7 +180,9 @@ kurl_t *kurl_open(const char *url, kurl_opt_t *opt)
 	if (!kurl_isfile(ku) && ku->m_buf < CURL_MAX_WRITE_SIZE * 2)
 		ku->m_buf = CURL_MAX_WRITE_SIZE * 2; // for remote files, the buffer set to 2*CURL_MAX_WRITE_SIZE
 	ku->buf = (uint8_t*)calloc(ku->m_buf, 1);
-	if (prepare(ku) < 0 || fill_buffer(ku) <= 0) {
+	if (kurl_isfile(ku)) failed = (fill_buffer(ku) <= 0);
+	else failed = (prepare(ku) < 0 || fill_buffer(ku) <= 0);
+	if (failed) {
 		kurl_close(ku);
 		return 0;
 	}
@@ -236,11 +238,12 @@ ssize_t kurl_read(kurl_t *ku, void *buf, size_t nbytes)
 off_t kurl_seek(kurl_t *ku, off_t offset, int whence) // FIXME: sometimes when seek() fails, read() will fail as well.
 {
 	off_t new_off = -1, cur_off;
-	int failed = 0;
+	int failed = 0, seek_end = 0;
 	if (ku == 0) return -1;
 	cur_off = ku->off0 + ku->p_buf;
 	if (whence == SEEK_SET) new_off = offset;
 	else if (whence == SEEK_CUR) new_off += cur_off + offset;
+	else if (whence == SEEK_END && kurl_isfile(ku)) new_off = lseek(ku->fd, offset, SEEK_END), seek_end = 1;
 	else { // not supported whence
 		ku->err = KURL_INV_WHENCE;
 		return -1;
@@ -249,11 +252,11 @@ off_t kurl_seek(kurl_t *ku, off_t offset, int whence) // FIXME: sometimes when s
 		ku->err = KURL_SEEK_OUT;
 		return -1;
 	}
-	if (new_off - cur_off + ku->p_buf < ku->l_buf) {
+	if (!seek_end && new_off >= cur_off && new_off - cur_off + ku->p_buf < ku->l_buf) {
 		ku->p_buf += new_off - cur_off;
 		return ku->off0 + ku->p_buf;
 	}
-	if (new_off - cur_off > KU_MAX_SKIP) { // if jump is large, do actual seek
+	if (seek_end || new_off < cur_off || new_off - cur_off > KU_MAX_SKIP) { // if jump is large, do actual seek
 		ku->off0 = new_off;
 		ku->done_reading = 0;
 		if (prepare(ku) < 0 || fill_buffer(ku) <= 0) failed = 1;
