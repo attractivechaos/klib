@@ -50,10 +50,10 @@ void kurl_destroy(void)
 	curl_global_cleanup();
 }
 
-static int prepare(kurl_t *ku)
+static int prepare(kurl_t *ku, int do_seek)
 {
 	if (kurl_isfile(ku)) {
-		if (lseek(ku->fd, ku->off0, SEEK_SET) != ku->off0)
+		if (do_seek && lseek(ku->fd, ku->off0, SEEK_SET) != ku->off0)
 			return -1;
 	} else { // FIXME: for S3, we need to re-authorize
 		int rc;
@@ -181,7 +181,7 @@ kurl_t *kurl_open(const char *url, kurl_opt_t *opt)
 		ku->m_buf = CURL_MAX_WRITE_SIZE * 2; // for remote files, the buffer set to 2*CURL_MAX_WRITE_SIZE
 	ku->buf = (uint8_t*)calloc(ku->m_buf, 1);
 	if (kurl_isfile(ku)) failed = (fill_buffer(ku) <= 0);
-	else failed = (prepare(ku) < 0 || fill_buffer(ku) <= 0);
+	else failed = (prepare(ku, 0) < 0 || fill_buffer(ku) <= 0);
 	if (failed) {
 		kurl_close(ku);
 		return 0;
@@ -196,7 +196,7 @@ kurl_t *kurl_dopen(int fd)
 	ku->fd = fd;
 	ku->m_buf = KU_DEF_BUFLEN;
 	ku->buf = (uint8_t*)calloc(ku->m_buf, 1);
-	if (prepare(ku) < 0 || fill_buffer(ku) <= 0) {
+	if (prepare(ku, 0) < 0 || fill_buffer(ku) <= 0) {
 		kurl_close(ku);
 		return 0;
 	}
@@ -259,7 +259,7 @@ off_t kurl_seek(kurl_t *ku, off_t offset, int whence) // FIXME: sometimes when s
 	if (seek_end || new_off < cur_off || new_off - cur_off > KU_MAX_SKIP) { // if jump is large, do actual seek
 		ku->off0 = new_off;
 		ku->done_reading = 0;
-		if (prepare(ku) < 0 || fill_buffer(ku) <= 0) failed = 1;
+		if (prepare(ku, 1) < 0 || fill_buffer(ku) <= 0) failed = 1;
 	} else { // if jump is small, read through
 		off_t r;
 		r = kurl_read(ku, 0, new_off - cur_off);
