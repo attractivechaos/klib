@@ -49,9 +49,8 @@
  *       kstring_t str = { 0, 0, NULL };
  *       kstring_t str; ...; str.l = str.m = 0; str.s = NULL;
  * and either ownership of the underlying buffer should be given away before
- * the object disappears (i.e., the str.s pointer copied and something else
- * responsible for freeing it), or the kstring_t should be destroyed with
- *       free(str.s);  */
+ * the object disappears (see ks_release() below) or the kstring_t should be
+ * destroyed with  free(str.s);  */
 #ifndef KSTRING_T
 #define KSTRING_T kstring_t
 typedef struct __kstring_t {
@@ -109,6 +108,18 @@ static inline char *ks_str(kstring_t *s)
 static inline size_t ks_len(kstring_t *s)
 {
 	return s->l;
+}
+
+// Give ownership of the underlying buffer away to something else (making
+// that something else responsible for freeing it), leaving the kstring_t
+// empty and ready to be used again, or ready to go out of scope without
+// needing  free(str.s)  to prevent a memory leak.
+static inline char *ks_release(kstring_t *s)
+{
+	char *ss = s->s;
+	s->l = s->m = 0;
+	s->s = NULL;
+	return ss;
 }
 
 static inline int kputsn(const char *p, int l, kstring_t *s)
