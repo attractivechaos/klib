@@ -37,13 +37,13 @@ static int socket_connect(const char *host, const char *port)
 {
 #define __err_connect(func) do { perror(func); freeaddrinfo(res); return -1; } while (0)
 
-	int on = 1, fd;
+	int ai_err, on = 1, fd;
 	struct linger lng = { 0, 0 };
 	struct addrinfo hints, *res = 0;
 	memset(&hints, 0, sizeof(struct addrinfo));
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
-	if (getaddrinfo(host, port, &hints, &res) != 0) __err_connect("getaddrinfo");
+	if ((ai_err = getaddrinfo(host, port, &hints, &res)) != 0) { fprintf(stderr, "can't resolve %s:%s: %s\n", host, port, gai_strerror(ai_err)); return -1; }
 	if ((fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol)) == -1) __err_connect("socket");
 	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) == -1) __err_connect("setsockopt");
 	if (setsockopt(fd, SOL_SOCKET, SO_LINGER, &lng, sizeof(lng)) == -1) __err_connect("setsockopt");
