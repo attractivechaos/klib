@@ -115,6 +115,18 @@
 		if (d) *d = p->data;											\
 		kmp_free(name, kl->mp, p);										\
 		return 0;														\
+	}																	\
+    static inline int kl_delete_after_##name(kl_##name##_t *kl,			\
+                                                kl1_##name *c,			\
+												kltype_t *d) {			\
+		kl1_##name *p;													\
+		if (c->next == 0) return -1;									\
+		if (c->next->next == 0) return -1;								\
+		--kl->size;														\
+		p = c->next; c->next = c->next->next;							\
+		if (d) *d = p->data;											\
+		kmp_free(name, kl->mp, p);										\
+		return 0;														\
 	}
 
 #define KLIST_INIT(name, kltype_t, kmpfree_t)							\
@@ -131,5 +143,6 @@
 #define kl_destroy(name, kl) kl_destroy_##name(kl)
 #define kl_pushp(name, kl) kl_pushp_##name(kl)
 #define kl_shift(name, kl, d) kl_shift_##name(kl, d)
+#define kl_delete_after(name, kl, iter, d) kl_delete_after_##name(kl, iter, d)
 
 #endif

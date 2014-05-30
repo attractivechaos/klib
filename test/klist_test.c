@@ -11,7 +11,9 @@ int main()
 	kl = kl_init(32);
 	*kl_pushp(32, kl) = 1;
 	*kl_pushp(32, kl) = 10;
+	*kl_pushp(32, kl) = 19;
 	kl_shift(32, kl, 0);
+	kl_delete_after(32, kl, kl_begin(kl), 0);
 	for (p = kl_begin(kl); p != kl_end(kl); p = kl_next(p))
 		printf("%d\n", kl_val(p));
 	kl_destroy(32, kl);
