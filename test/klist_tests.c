@@ -78,6 +78,30 @@ START_TEST (empty_val)
 }
 END_TEST
 
+START_TEST (empty_next)
+{
+    ck_assert_ptr_eq(kl_next(kl_begin(g_list)), NULL);
+}
+END_TEST
+
+START_TEST (empty_delete_after)
+{
+    int d = 42;
+    int result = kl_delete_after(32, g_list, kl_begin(g_list), &d);
+    ck_assert_int_eq(result, -1);
+    ck_assert_int_eq(d, 42);
+    ck_assert_int_eq(kl_length(g_list), 0);
+}
+END_TEST
+
+START_TEST (empty_insertp_after)
+{
+    int *result = kl_insertp_after(32, g_list, kl_begin(g_list));
+    ck_assert_ptr_eq(result, NULL);
+    ck_assert_int_eq(kl_length(g_list), 0);
+}
+END_TEST
+
 Suite* klist_suite(void)
 {
     Suite *s = suite_create("klist");
@@ -94,6 +118,9 @@ Suite* klist_suite(void)
     tcase_add_test(tc_empty, empty_push);
     tcase_add_test(tc_empty, empty_begin_end);
     tcase_add_test(tc_empty, empty_val);
+    tcase_add_test(tc_empty, empty_next);
+    tcase_add_test(tc_empty, empty_delete_after);
+    tcase_add_test(tc_empty, empty_insertp_after);
     suite_add_tcase(s, tc_empty);
 
     return s;
