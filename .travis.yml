@@ -1,0 +1,24 @@
+language: c
+compiler: gcc
+
+before_install:
+    # Add PPA for gcc
+    - sudo apt-add-repository -y ppa:ubuntu-toolchain-r/test
+    # Update apt
+    - sudo apt-get update -qq
+    # Install gcc 4.8
+    - sudo apt-get install -qq gcc-4.8 g++-4.8
+    # Make gcc 4.8 the default version
+    - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 100
+    - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 100
+    - sudo update-alternatives --install /usr/bin/cpp cpp /usr/bin/cpp-4.8 100
+    # Install required libraries from apt
+    - sudo apt-get install -qq check
+
+script:
+    - cd ./test
+    - mkdir ./build
+    - cd ./build
+    - cmake ..
+    - make
+    - ./klib-test
