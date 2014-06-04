@@ -13,7 +13,7 @@ before_install:
     - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 100
     - sudo update-alternatives --install /usr/bin/cpp cpp /usr/bin/cpp-4.8 100
     # Install required libraries from apt
-    - sudo apt-get install -qq check
+    - sudo apt-get install -qq check libpthread-stubs0-dev
 
 script:
     - cd ./test
