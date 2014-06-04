@@ -72,6 +72,12 @@ START_TEST (empty_begin_end)
 }
 END_TEST
 
+START_TEST (empty_val)
+{
+    ck_assert_int_eq(kl_val(kl_begin(g_list)), 0);
+}
+END_TEST
+
 Suite* klist_suite(void)
 {
     Suite *s = suite_create("klist");
@@ -87,6 +93,7 @@ Suite* klist_suite(void)
     tcase_add_test(tc_empty, empty_unshift);
     tcase_add_test(tc_empty, empty_push);
     tcase_add_test(tc_empty, empty_begin_end);
+    tcase_add_test(tc_empty, empty_val);
     suite_add_tcase(s, tc_empty);
 
     return s;
