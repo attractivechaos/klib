@@ -1,5 +1,7 @@
 #Klib: a Generic Library in C
 
+[![Build Status](https://travis-ci.org/tecywiz121/klib.svg?branch=master)](https://travis-ci.org/tecywiz121/klib)
+
 ##<a name="overview"></a>Overview
 
 Klib is a standalone and lightweight C library distributed under [MIT/X11
