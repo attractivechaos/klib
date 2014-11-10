@@ -143,11 +143,13 @@ typedef unsigned long khint64_t;
 typedef unsigned long long khint64_t;
 #endif
 
+#ifndef kh_inline
 #ifdef _MSC_VER
 #define kh_inline __inline
 #else
 #define kh_inline inline
 #endif
+#endif /* kh_inline */
 
 typedef khint32_t khint_t;
 typedef khint_t khiter_t;
@@ -245,11 +247,11 @@ static const double __ac_HASH_UPPER = 0.77;
 				memset(new_flags, 0xaa, __ac_fsize(new_n_buckets) * sizeof(khint32_t)); \
 				if (h->n_buckets < new_n_buckets) {	/* expand */		\
 					khkey_t *new_keys = (khkey_t*)krealloc((void *)h->keys, new_n_buckets * sizeof(khkey_t)); \
-					if (!new_keys) return -1;							\
+					if (!new_keys) { kfree(new_flags); return -1; }		\
 					h->keys = new_keys;									\
 					if (kh_is_map) {									\
 						khval_t *new_vals = (khval_t*)krealloc((void *)h->vals, new_n_buckets * sizeof(khval_t)); \
-						if (!new_vals) return -1;						\
+						if (!new_vals) { kfree(new_flags); return -1; }	\
 						h->vals = new_vals;								\
 					}													\
 				} /* otherwise shrink */								\
