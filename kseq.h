@@ -70,7 +70,7 @@
 		if (ks->begin >= ks->end) {							\
 			ks->begin = 0;									\
 			ks->end = __read(ks->f, ks->buf, __bufsize);	\
-			if (ks->end < __bufsize) ks->is_eof = 1;		\
+			if (ks->end == 0) ks->is_eof = 1;		\
 			if (ks->end == 0) return -1;					\
 		}													\
 		return (int)ks->buf[ks->begin++];					\
@@ -100,7 +100,7 @@ typedef struct __kstring_t {
 				if (!ks->is_eof) {										\
 					ks->begin = 0;										\
 					ks->end = __read(ks->f, ks->buf, __bufsize);		\
-					if (ks->end < __bufsize) ks->is_eof = 1;			\
+					if (ks->end == 0) ks->is_eof = 1;			\
 					if (ks->end == 0) break;							\
 				} else break;											\
 			}															\
