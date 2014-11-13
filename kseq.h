@@ -90,9 +90,9 @@ typedef struct __kstring_t {
 #define __KS_GETUNTIL(__read, __bufsize)								\
 	static int ks_getuntil2(kstream_t *ks, int delimiter, kstring_t *str, int *dret, int append) \
 	{																	\
+		int gotany = 0;													\
 		if (dret) *dret = 0;											\
 		str->l = append? str->l : 0;									\
-		if (ks->begin >= ks->end && ks->is_eof) return -1;				\
 		for (;;) {														\
 			int i;														\
 			if (ks->begin >= ks->end) {									\
@@ -120,6 +120,7 @@ typedef struct __kstring_t {
 				kroundup32(str->m);										\
 				str->s = (char*)realloc(str->s, str->m);				\
 			}															\
+			gotany = 1;													\
 			memcpy(str->s + str->l, ks->buf + ks->begin, i - ks->begin); \
 			str->l = str->l + (i - ks->begin);							\
 			ks->begin = i + 1;											\
@@ -128,6 +129,7 @@ typedef struct __kstring_t {
 				break;													\
 			}															\
 		}																\
+		if (!gotany && ks_eof(ks)) return -1;							\
 		if (str->s == 0) {												\
 			str->m = 1;													\
 			str->s = (char*)calloc(1, 1);								\
