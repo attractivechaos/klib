@@ -175,6 +175,9 @@ kurl_t *kurl_open(const char *url, kurl_opt_t *opt)
 		curl_easy_setopt(ku->curl, CURLOPT_VERBOSE, 0L);
 		curl_easy_setopt(ku->curl, CURLOPT_NOSIGNAL, 1L);
 		curl_easy_setopt(ku->curl, CURLOPT_WRITEFUNCTION, write_cb);
+		curl_easy_setopt(ku->curl, CURLOPT_SSL_VERIFYPEER, 0L);
+		curl_easy_setopt(ku->curl, CURLOPT_SSL_VERIFYHOST, 0L);
+		curl_easy_setopt(ku->curl, CURLOPT_FOLLOWLOCATION, 1L);
 	}
 	ku->m_buf = KU_DEF_BUFLEN;
 	if (!kurl_isfile(ku) && ku->m_buf < CURL_MAX_WRITE_SIZE * 2)
