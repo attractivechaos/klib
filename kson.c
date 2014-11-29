@@ -79,7 +79,7 @@ kson_node_t *kson_parse_core(const char *json, long *_n, int *error, long *parse
 				for (q = ++p; *q && *q != c; ++q)
 					if (*q == '\\') ++q;
 			} else {
-				for (q = p; *q && *q != ']' && *q != '}' && *q != ',' && *q != ':'; ++q)
+				for (q = p; *q && *q != ']' && *q != '}' && *q != ',' && *q != ':' && *q != '\n'; ++q)
 					if (*q == '\\') ++q;
 			}
 			u->v.str = (char*)malloc(q - p + 1); strncpy(u->v.str, p, q - p); u->v.str[q-p] = 0; // equivalent to u->v.str=strndup(p, q-p)

@@ -50,7 +50,6 @@ extern "C" {
 	const kson_node_t *kson_query(const kson_t *kson, int max_depth, ...);
 
 	void kson_print(const kson_t *kson);
-	kson_node_t *kson_parse_core(const char *json, long *n_nodes, int *error, long *parsed_len);
 
 #ifdef __cplusplus
 }
