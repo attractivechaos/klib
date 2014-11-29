@@ -62,9 +62,17 @@ kson_node_t *kson_parse_core(const char *json, int *_n, int *error, const char *
 			}
 			__push_back(-3);
 		} else {
-			int c = *p, type = c == '\''? KSON_TYPE_SGL_QUOTE : c == '"'? KSON_TYPE_DBL_QUOTE : KSON_TYPE_NO_QUOTE;
-			char *r;
-
+			int c = *p;
+			// get the node to modify
+			if (top >= 2 && stack[top-1] == -3) { // we have a key:value pair here
+				--top;
+				u = &a[stack[top-1]];
+				u->key = u->v.str; // move old value to key
+			} else { // don't know if this is a bare value or a key:value pair; keep it as a value for now
+				__push_back(n_a);
+				__new_node(&u);
+			}
+			// parse string
 			if (c == '\'' || c == '"') {
 				for (q = ++p; *q && *q != c; ++q)
 					if (*q == '\\') ++q;
@@ -72,18 +80,9 @@ kson_node_t *kson_parse_core(const char *json, int *_n, int *error, const char *
 				for (q = p; *q && *q != ']' && *q != '}' && *q != ',' && *q != ':'; ++q)
 					if (*q == '\\') ++q;
 			}
-			r = malloc(q - p + 1); strncpy(r, p, q - p); r[q-p] = 0; // equivalent to r=strndup(p, q-p)
+			u->v.str = malloc(q - p + 1); strncpy(u->v.str, p, q - p); u->v.str[q-p] = 0; // equivalent to u->v.str=strndup(p, q-p)
+			u->type = c == '\''? KSON_TYPE_SGL_QUOTE : c == '"'? KSON_TYPE_DBL_QUOTE : KSON_TYPE_NO_QUOTE;
 			p = c == '\'' || c == '"'? q : q - 1;
-
-			if (top >= 2 && stack[top-1] == -3) { // we have a key:value pair here
-				--top;
-				u = &a[stack[top-1]];
-				u->key = u->v.str, u->v.str = r, u->type = type; // move old value to key
-			} else { // don't know if this is a bare value or a key:value pair; keep it as a value for now
-				__push_back(n_a);
-				__new_node(&u);
-				u->v.str = r, u->type = type;
-			}
 		}
 	}
 	while (*p && isblank(*p)) ++p; // skip trailing blanks
