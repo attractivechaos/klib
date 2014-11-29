@@ -18,17 +18,22 @@ typedef struct {
 	uint64_t type:3, n:61;
 	char *key;
 	union {
-		int *child;
+		long *child;
 		char *str;
 	} v;
 } kson_node_t;
+
+typedef struct {
+	long n_nodes;
+	kson_node_t *nodes;
+} kson_t;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 	/**
-	 * Parse a JSON string
+	 * Parse a JSON string into nodes
 	 *
 	 * @param json        JSON string
 	 * @param n_nodes     number of nodes
@@ -37,11 +42,13 @@ extern "C" {
 	 *
 	 * @return An array of size $n_nodes keeping parsed nodes
 	 */
-	kson_node_t *kson_parse(const char *json, int *n_nodes, int *error, int *parsed_len);
+	kson_node_t *kson_parse_core(const char *json, long *n_nodes, int *error, long *parsed_len);
 
-	void kson_destroy(int n_nodes, kson_node_t *nodes);
+	// Equivalent to: { kson->nodes = kson_parse_core(json, &kson->n_nodes, &error, 0); return *error? 0 : kson; } 
+	kson_t *kson_parse(const char *json, int *error);
 
-	void kson_print_recur(kson_node_t *nodes, kson_node_t *root);
+	void kson_destroy(kson_t *ks);
+	void kson_print(kson_t *kson);
 
 #ifdef __cplusplus
 }
