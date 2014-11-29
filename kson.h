@@ -9,6 +9,7 @@
 #define KSON_TYPE_BRACKET   4
 #define KSON_TYPE_BRACE     5
 
+#define KSON_OK              0
 #define KSON_ERR_EXTRA_LEFT  1
 #define KSON_ERR_EXTRA_RIGHT 2
 #define KSON_ERR_NO_KEY      3
@@ -26,7 +27,18 @@ typedef struct {
 extern "C" {
 #endif
 
-	kson_node_t *kson_parse_core(const char *json, int *_n, int *error, const char **end);
+	/**
+	 * Parse a JSON string
+	 *
+	 * @param json        JSON string
+	 * @param n           number of nodes
+	 * @param error       0 if no error; or set to one of KSON_ERR_* values
+	 * @param parsed_len  if not NULL, equal to the parsed length
+	 *
+	 * @return An array of size $n keeping parsed nodes
+	 */
+	kson_node_t *kson_parse(const char *json, int *n, int *error, int *parsed_len);
+
 	void kson_print_recur(kson_node_t *nodes, kson_node_t *root);
 
 #ifdef __cplusplus

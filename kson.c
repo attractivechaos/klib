@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include "kson.h"
 
-kson_node_t *kson_parse_core(const char *json, int *_n, int *error, const char **end)
+kson_node_t *kson_parse(const char *json, int *_n, int *error, int *parsed_len)
 {
 	int *stack = 0, top = 0, max = 0, n_a = 0, m_a = 0;
 	kson_node_t *a = 0, *u;
@@ -80,13 +80,13 @@ kson_node_t *kson_parse_core(const char *json, int *_n, int *error, const char *
 				for (q = p; *q && *q != ']' && *q != '}' && *q != ',' && *q != ':'; ++q)
 					if (*q == '\\') ++q;
 			}
-			u->v.str = malloc(q - p + 1); strncpy(u->v.str, p, q - p); u->v.str[q-p] = 0; // equivalent to u->v.str=strndup(p, q-p)
+			u->v.str = (char*)malloc(q - p + 1); strncpy(u->v.str, p, q - p); u->v.str[q-p] = 0; // equivalent to u->v.str=strndup(p, q-p)
 			u->type = c == '\''? KSON_TYPE_SGL_QUOTE : c == '"'? KSON_TYPE_DBL_QUOTE : KSON_TYPE_NO_QUOTE;
 			p = c == '\'' || c == '"'? q : q - 1;
 		}
 	}
 	while (*p && isblank(*p)) ++p; // skip trailing blanks
-	*end = p;
+	if (parsed_len) *parsed_len = p - json;
 	if (top != 1) *error = KSON_ERR_EXTRA_LEFT;
 
 	free(stack);
@@ -121,9 +121,8 @@ void kson_print_recur(kson_node_t *nodes, kson_node_t *p)
 int main(int argc, char *argv[])
 {
 	kson_node_t *nodes;
-	int n_nodes, error;
-	const char *end;
-	nodes = kson_parse_core("{'a' : 1, 'b':[0,'isn\\'t',true],'d':[{}]}", &n_nodes, &error, &end);
+	int n_nodes, error, parsed_len;
+	nodes = kson_parse("{'a' : 1, 'b':[0,'isn\\'t',true],'d':[{}]}", &n_nodes, &error, &parsed_len);
 	if (error == 0) {
 		kson_print_recur(nodes, &nodes[0]);
 		putchar('\n');
