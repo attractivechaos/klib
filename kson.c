@@ -6,7 +6,7 @@
 
 kson_node_t *kson_parse_core(const char *json, int *_n, int *error, const char **end)
 {
-	int *stack = 0, top = 0, max = 0, n_a = 0, m_a = 0, i;
+	int *stack = 0, top = 0, max = 0, n_a = 0, m_a = 0;
 	kson_node_t *a = 0, *u;
 	const char *p, *q;
 
@@ -49,10 +49,11 @@ kson_node_t *kson_parse_core(const char *json, int *_n, int *error, const char *
 			start = i;
 			u = &a[stack[start-1]];
 			u->n = top - 1 - start;
+			u->key = u->v.str;
 			u->v.child = (int*)malloc(u->n * sizeof(int));
 			for (i = start + 1; i < top; ++i)
 				u->v.child[i - start - 1] = stack[i];
-			u->type = *p == ']'? KSON_TYPE_ANGLE : KSON_TYPE_CURLY;
+			u->type = *p == ']'? KSON_TYPE_BRACKET : KSON_TYPE_BRACE;
 			if ((top = start) == 1) break; // completed one object; remaining characters discarded
 		} else if (*p == ':') {
 			if (top == 0 || stack[top-1] == -3) {
@@ -76,19 +77,16 @@ kson_node_t *kson_parse_core(const char *json, int *_n, int *error, const char *
 
 			if (top >= 2 && stack[top-1] == -3) { // this string is a value
 				--top;
-				a[stack[top-1]].v.str = r;
-				a[stack[top-1]].type = type;
+				u = &a[stack[top-1]];
+				u->key = u->v.str, u->v.str = r, u->type = type;
 			} else { // this string is a key
 				__push_back(n_a);
 				__new_node(&u);
-				u->key = r, u->type = type;
+				u->v.str = r, u->type = type;
 			}
 		}
 	}
 	*end = p;
-	for (i = 0; i < n_a; ++i) // for arrays, move key to v.str
-		if (a[i].n == 0 && a[i].v.str == 0)
-			a[i].v.str = a[i].key, a[i].key = 0;
 
 	free(stack);
 	*_n = n_a;
@@ -103,12 +101,12 @@ void kson_print_recur(kson_node_t *nodes, kson_node_t *p)
 	}
 	if (p->n) {
 		int i;
-		putchar(p->type == KSON_TYPE_ANGLE? '[' : '{');
+		putchar(p->type == KSON_TYPE_BRACKET? '[' : '{');
 		for (i = 0; i < p->n; ++i) {
 			if (i) putchar(',');
 			kson_print_recur(nodes, &nodes[p->v.child[i]]);
 		}
-		putchar(p->type == KSON_TYPE_ANGLE? ']' : '}');
+		putchar(p->type == KSON_TYPE_BRACKET? ']' : '}');
 	} else if (p->v.str) {
 		if (p->type != KSON_TYPE_NO_QUOTE)
 			putchar(p->type == KSON_TYPE_SGL_QUOTE? '\'' : '"');

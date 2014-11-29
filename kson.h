@@ -6,8 +6,8 @@
 #define KSON_TYPE_NO_QUOTE  1
 #define KSON_TYPE_SGL_QUOTE 2
 #define KSON_TYPE_DBL_QUOTE 3
-#define KSON_TYPE_ANGLE     4
-#define KSON_TYPE_CURLY     5
+#define KSON_TYPE_BRACKET   4
+#define KSON_TYPE_BRACE     5
 
 #define KSON_ERR_EXTRA_LEFT  1
 #define KSON_ERR_EXTRA_RIGHT 2
