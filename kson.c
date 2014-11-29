@@ -94,6 +94,15 @@ kson_node_t *kson_parse(const char *json, int *_n, int *error, int *parsed_len)
 	return a;
 }
 
+void kson_destroy(int n_nodes, kson_node_t *nodes)
+{
+	int i;
+	for (i = 0; i < n_nodes; ++i) {
+		free(nodes[i].key); free(nodes[i].str);
+	}
+	free(nodes);
+}
+
 void kson_print_recur(kson_node_t *nodes, kson_node_t *p)
 {
 	if (p->key) {

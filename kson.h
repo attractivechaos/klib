@@ -31,13 +31,15 @@ extern "C" {
 	 * Parse a JSON string
 	 *
 	 * @param json        JSON string
-	 * @param n           number of nodes
+	 * @param n_nodes     number of nodes
 	 * @param error       0 if no error; or set to one of KSON_ERR_* values
 	 * @param parsed_len  if not NULL, equal to the parsed length
 	 *
-	 * @return An array of size $n keeping parsed nodes
+	 * @return An array of size $n_nodes keeping parsed nodes
 	 */
-	kson_node_t *kson_parse(const char *json, int *n, int *error, int *parsed_len);
+	kson_node_t *kson_parse(const char *json, int *n_nodes, int *error, int *parsed_len);
+
+	void kson_destroy(int n_nodes, kson_node_t *nodes);
 
 	void kson_print_recur(kson_node_t *nodes, kson_node_t *root);
 
