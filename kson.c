@@ -98,7 +98,7 @@ void kson_destroy(int n_nodes, kson_node_t *nodes)
 {
 	int i;
 	for (i = 0; i < n_nodes; ++i) {
-		free(nodes[i].key); free(nodes[i].str);
+		free(nodes[i].key); free(nodes[i].v.str);
 	}
 	free(nodes);
 }
@@ -138,6 +138,7 @@ int main(int argc, char *argv[])
 	} else {
 		printf("Error code: %d\n", error);
 	}
+	kson_destroy(n_nodes, nodes);
 	return 0;
 }
 #endif
