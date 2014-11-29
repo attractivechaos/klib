@@ -119,45 +119,6 @@ kson_t *kson_parse(const char *json, int *error)
 	return kson;
 }
 
-void kson_format_recur(const kson_node_t *nodes, int depth, const kson_node_t *p)
-{
-	long i;
-	if (p->key) {
-		printf("\"%s\"", p->key);
-		if (p->v.str) putchar(':');
-	}
-	if (p->type == KSON_TYPE_BRACKET || p->type == KSON_TYPE_BRACE) {
-		putchar(p->type == KSON_TYPE_BRACKET? '[' : '{');
-		putchar('\n');
-		if (p->n) {
-			for (i = 0; i <= depth; ++i) fputs("  ", stdout);
-			for (i = 0; i < (long)p->n; ++i) {
-				if (i) {
-					int i;
-					putchar(',');
-					putchar('\n'); for (i = 0; i <= depth; ++i) fputs("  ", stdout);
-				}
-				kson_format_recur(nodes, depth + 1, &nodes[p->v.child[i]]);
-			}
-			putchar('\n');
-		}
-		for (i = 0; i < depth; ++i) fputs("  ", stdout);
-		putchar(p->type == KSON_TYPE_BRACKET? ']' : '}');
-	} else {
-		if (p->type != KSON_TYPE_NO_QUOTE)
-			putchar(p->type == KSON_TYPE_SGL_QUOTE? '\'' : '"');
-		printf("%s", p->v.str);
-		if (p->type != KSON_TYPE_NO_QUOTE)
-			putchar(p->type == KSON_TYPE_SGL_QUOTE? '\'' : '"');
-	}
-}
-
-void kson_format(const kson_t *kson)
-{
-	kson_format_recur(kson->nodes, 0, kson->nodes);
-	putchar('\n');
-}
-
 const kson_node_t *kson_vquery(const kson_node_t *nodes, const kson_node_t *root, int depth, va_list ap)
 {
 	const kson_node_t *p = root;
@@ -190,6 +151,45 @@ const kson_node_t *kson_query(const kson_t *kson, int depth, ...)
 	p = kson_vquery(kson->nodes, kson->nodes, depth, ap);
 	va_end(ap);
 	return p;
+}
+
+void kson_format_recur(const kson_node_t *nodes, int depth, const kson_node_t *p)
+{
+	long i;
+	if (p->key) {
+		printf("\"%s\"", p->key);
+		if (p->v.str) putchar(':');
+	}
+	if (p->type == KSON_TYPE_BRACKET || p->type == KSON_TYPE_BRACE) {
+		putchar(p->type == KSON_TYPE_BRACKET? '[' : '{');
+		putchar('\n');
+		if (p->n) {
+			for (i = 0; i <= depth; ++i) fputs("  ", stdout);
+			for (i = 0; i < (long)p->n; ++i) {
+				if (i) {
+					int i;
+					putchar(',');
+					putchar('\n'); for (i = 0; i <= depth; ++i) fputs("  ", stdout);
+				}
+				kson_format_recur(nodes, depth + 1, &nodes[p->v.child[i]]);
+			}
+			putchar('\n');
+		}
+		for (i = 0; i < depth; ++i) fputs("  ", stdout);
+		putchar(p->type == KSON_TYPE_BRACKET? ']' : '}');
+	} else {
+		if (p->type != KSON_TYPE_NO_QUOTE)
+			putchar(p->type == KSON_TYPE_SGL_QUOTE? '\'' : '"');
+		fputs(p->v.str, stdout);
+		if (p->type != KSON_TYPE_NO_QUOTE)
+			putchar(p->type == KSON_TYPE_SGL_QUOTE? '\'' : '"');
+	}
+}
+
+void kson_format(const kson_t *kson)
+{
+	kson_format_recur(kson->nodes, 0, kson->nodes);
+	putchar('\n');
 }
 
 #ifdef KSON_MAIN
