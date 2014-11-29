@@ -79,7 +79,7 @@ kson_node_t *kson_parse_core(const char *json, long *_n, int *error, long *parse
 				for (q = ++p; *q && *q != c; ++q)
 					if (*q == '\\') ++q;
 			} else {
-				for (q = p; *q && *q != ']' && *q != '}' && *q != ',' && *q != ':' && *q != '\n'; ++q)
+				for (q = p; *q && *q != ']' && *q != '}' && *q != ',' && *q != ':'; ++q)
 					if (*q == '\\') ++q;
 			}
 			u->v.str = (char*)malloc(q - p + 1); strncpy(u->v.str, p, q - p); u->v.str[q-p] = 0; // equivalent to u->v.str=strndup(p, q-p)
@@ -119,19 +119,29 @@ kson_t *kson_parse(const char *json, int *error)
 	return kson;
 }
 
-void kson_print_recur(const kson_node_t *nodes, const kson_node_t *p)
+void kson_format_recur(const kson_node_t *nodes, int depth, const kson_node_t *p)
 {
+	long i;
 	if (p->key) {
 		printf("\"%s\"", p->key);
 		if (p->v.str) putchar(':');
 	}
 	if (p->type == KSON_TYPE_BRACKET || p->type == KSON_TYPE_BRACE) {
-		long i;
 		putchar(p->type == KSON_TYPE_BRACKET? '[' : '{');
-		for (i = 0; i < (long)p->n; ++i) {
-			if (i) putchar(',');
-			kson_print_recur(nodes, &nodes[p->v.child[i]]);
+		putchar('\n');
+		if (p->n) {
+			for (i = 0; i <= depth; ++i) fputs("  ", stdout);
+			for (i = 0; i < (long)p->n; ++i) {
+				if (i) {
+					int i;
+					putchar(',');
+					putchar('\n'); for (i = 0; i <= depth; ++i) fputs("  ", stdout);
+				}
+				kson_format_recur(nodes, depth + 1, &nodes[p->v.child[i]]);
+			}
+			putchar('\n');
 		}
+		for (i = 0; i < depth; ++i) fputs("  ", stdout);
 		putchar(p->type == KSON_TYPE_BRACKET? ']' : '}');
 	} else {
 		if (p->type != KSON_TYPE_NO_QUOTE)
@@ -142,9 +152,10 @@ void kson_print_recur(const kson_node_t *nodes, const kson_node_t *p)
 	}
 }
 
-void kson_print(const kson_t *kson)
+void kson_format(const kson_t *kson)
 {
-	kson_print_recur(kson->nodes, kson->nodes);
+	kson_format_recur(kson->nodes, 0, kson->nodes);
+	putchar('\n');
 }
 
 const kson_node_t *kson_vquery(const kson_node_t *nodes, const kson_node_t *root, int depth, va_list ap)
@@ -182,18 +193,40 @@ const kson_node_t *kson_query(const kson_t *kson, int depth, ...)
 }
 
 #ifdef KSON_MAIN
+#define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
 int main(int argc, char *argv[])
 {
-	kson_t *kson;
+	kson_t *kson = 0;
 	int error;
-	kson = kson_parse("{'a' : 1, 'b':[0,'isn\\'t',true],'d':[{\n}]}", &error);
-	if (error == 0) {
-		const kson_node_t *p = kson_query(kson, 2, "b", 1);
-		printf("*** %s\n", p->v.str);
-		kson_print(kson);
-		putchar('\n');
+	if (argc > 1) {
+		FILE *fp;
+		int len = 0, max = 0, tmp;
+		char *json = 0, buf[0x10000];
+		if ((fp = fopen(argv[1], "rb")) != 0) {
+			while ((tmp = fread(buf, 1, 0x10000, fp)) != 0) {
+				if (len + tmp + 1 > max) {
+					max = len + tmp + 1;
+					kroundup32(max);
+					json = (char*)realloc(json, max);
+				}
+				memcpy(json + len, buf, tmp);
+				len += tmp;
+			}
+			fclose(fp);
+			kson = kson_parse(json, &error);
+			if (kson) kson_format(kson);
+			else printf("Error code: %d\n", error);
+		}
 	} else {
-		printf("Error code: %d\n", error);
+		kson = kson_parse("{'a' : 1\n'b':[0,'isn\\'t',true],'d':[{\n}]}", &error);
+		if (error == 0) {
+			const kson_node_t *p = kson_query(kson, 2, "b", 1);
+			if (p) printf("*** %s\n", p->v.str);
+			else printf("!!! not found\n");
+			kson_format(kson);
+		} else {
+			printf("Error code: %d\n", error);
+		}
 	}
 	kson_destroy(kson);
 	return 0;

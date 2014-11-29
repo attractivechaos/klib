@@ -49,7 +49,7 @@ extern "C" {
 
 	const kson_node_t *kson_query(const kson_t *kson, int max_depth, ...);
 
-	void kson_print(const kson_t *kson);
+	void kson_format(const kson_t *kson);
 
 #ifdef __cplusplus
 }
