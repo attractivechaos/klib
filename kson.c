@@ -48,8 +48,8 @@ kson_node_t *kson_parse_core(const char *json, int *_n, int *error, const char *
 			}
 			start = i;
 			u = &a[stack[start-1]];
-			u->n = top - 1 - start;
 			u->key = u->v.str;
+			u->n = top - 1 - start;
 			u->v.child = (int*)malloc(u->n * sizeof(int));
 			for (i = start + 1; i < top; ++i)
 				u->v.child[i - start - 1] = stack[i];
@@ -75,17 +75,18 @@ kson_node_t *kson_parse_core(const char *json, int *_n, int *error, const char *
 			r = malloc(q - p + 1); strncpy(r, p, q - p); r[q-p] = 0; // equivalent to r=strndup(p, q-p)
 			p = c == '\'' || c == '"'? q : q - 1;
 
-			if (top >= 2 && stack[top-1] == -3) { // this string is a value
+			if (top >= 2 && stack[top-1] == -3) { // we have a key:value pair here
 				--top;
 				u = &a[stack[top-1]];
-				u->key = u->v.str, u->v.str = r, u->type = type;
-			} else { // this string is a key
+				u->key = u->v.str, u->v.str = r, u->type = type; // move old value to key
+			} else { // don't know if this is a bare value or a key:value pair; keep it as a value for now
 				__push_back(n_a);
 				__new_node(&u);
 				u->v.str = r, u->type = type;
 			}
 		}
 	}
+	while (*p && isblank(*p)) ++p; // skip trailing blanks
 	*end = p;
 	if (top != 1) *error = KSON_ERR_EXTRA_LEFT;
 
@@ -123,7 +124,7 @@ int main(int argc, char *argv[])
 	kson_node_t *nodes;
 	int n_nodes, error;
 	const char *end;
-	nodes = kson_parse_core("{'a':1, 'b':[1,'c',true],'d':[]}", &n_nodes, &error, &end);
+	nodes = kson_parse_core("{'a' : 1, 'b':[0,'isn\\'t',true],'d':[{}]}", &n_nodes, &error, &end);
 	if (error == 0) {
 		kson_print_recur(nodes, &nodes[0]);
 		putchar('\n');

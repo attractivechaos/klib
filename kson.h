@@ -27,6 +27,7 @@ extern "C" {
 #endif
 
 	kson_node_t *kson_parse_core(const char *json, int *_n, int *error, const char **end);
+	void kson_print_recur(kson_node_t *nodes, kson_node_t *root);
 
 #ifdef __cplusplus
 }
