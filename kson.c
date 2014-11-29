@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include "kson.h"
 
-kson_node_t *kson_parse_core(const char *json, int *_n)
+kson_node_t *kson_parse_core(const char *json, int *_n, int *error, const char **end)
 {
 	int *stack = 0, top = 0, max = 0, n_a = 0, m_a = 0, i;
 	kson_node_t *a = 0, *u;
@@ -42,6 +42,10 @@ kson_node_t *kson_parse_core(const char *json, int *_n)
 		} else if (*p == ']' || *p == '}') {
 			int i, start, t = *p == ']'? -1 : -2;
 			for (i = top - 1; i >= 0 && stack[i] != t; --i);
+			if (i < 0) { // error: an extra right bracket
+				*error = KSON_ERR_EXTRA_RIGHT;
+				break;
+			}
 			start = i;
 			u = &a[stack[start-1]];
 			u->n = top - 1 - start;
@@ -49,9 +53,13 @@ kson_node_t *kson_parse_core(const char *json, int *_n)
 			for (i = start + 1; i < top; ++i)
 				u->v.child[i - start - 1] = stack[i];
 			u->type = *p == ']'? KSON_TYPE_ANGLE : KSON_TYPE_CURLY;
-			top = start;
+			if ((top = start) == 1) break; // completed one object; remaining characters discarded
 		} else if (*p == ':') {
-			if (top > 0) __push_back(-3);
+			if (top == 0 || stack[top-1] == -3) {
+				*error = KSON_ERR_NO_KEY;
+				break;
+			}
+			__push_back(-3);
 		} else {
 			int c = *p, type = c == '\''? KSON_TYPE_SGL_QUOTE : c == '"'? KSON_TYPE_DBL_QUOTE : KSON_TYPE_NO_QUOTE;
 			char *r;
@@ -77,6 +85,7 @@ kson_node_t *kson_parse_core(const char *json, int *_n)
 			}
 		}
 	}
+	*end = p;
 	for (i = 0; i < n_a; ++i) // for arrays, move key to v.str
 		if (a[i].n == 0 && a[i].v.str == 0)
 			a[i].v.str = a[i].key, a[i].key = 0;
@@ -113,10 +122,15 @@ void kson_print_recur(kson_node_t *nodes, kson_node_t *p)
 int main(int argc, char *argv[])
 {
 	kson_node_t *nodes;
-	int n_nodes;
-	nodes = kson_parse_core("{'a':1, 'b':[1,'c']}", &n_nodes);
-	kson_print_recur(nodes, &nodes[0]);
-	putchar('\n');
+	int n_nodes, error;
+	const char *end;
+	nodes = kson_parse_core("{'a':1, 'b':[1,'c',true]}", &n_nodes, &error, &end);
+	if (error == 0) {
+		kson_print_recur(nodes, &nodes[0]);
+		putchar('\n');
+	} else {
+		printf("Error code: %d\n", error);
+	}
 	return 0;
 }
 #endif
