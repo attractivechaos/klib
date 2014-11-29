@@ -47,7 +47,7 @@ extern "C" {
 	// Equivalent to: { kson->nodes = kson_parse_core(json, &kson->n_nodes, &error, 0); return *error? 0 : kson; } 
 	kson_t *kson_parse(const char *json, int *error);
 
-	void kson_destroy(kson_t *ks);
+	void kson_destroy(kson_t *kson);
 	void kson_print(kson_t *kson);
 
 #ifdef __cplusplus

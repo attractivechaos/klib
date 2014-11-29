@@ -108,14 +108,14 @@ void kson_destroy(kson_t *kson)
 
 kson_t *kson_parse(const char *json, int *error)
 {
-	kson_t *ks;
-	ks = (kson_t*)calloc(1, sizeof(kson_t));
-	ks->nodes = kson_parse_core(json, &ks->n_nodes, error, 0);
+	kson_t *kson;
+	kson = (kson_t*)calloc(1, sizeof(kson_t));
+	kson->nodes = kson_parse_core(json, &kson->n_nodes, error, 0);
 	if (*error) {
-		kson_destroy(ks);
+		kson_destroy(kson);
 		return 0;
 	}
-	return ks;
+	return kson;
 }
 
 void kson_print_recur(kson_node_t *nodes, kson_node_t *p)
