@@ -30,7 +30,7 @@ kson_node_t *kson_parse_core(const char *json, long *_n, int *error, long *parse
 
 	*error = KSON_OK;
 	for (p = json; *p; ++p) {
-		while (*p && isblank(*p)) ++p;
+		while (*p && isspace(*p)) ++p;
 		if (*p == 0) break;
 		if (*p == ',') { // comma is somewhat redundant
 		} else if (*p == '[' || *p == '{') {
@@ -86,7 +86,7 @@ kson_node_t *kson_parse_core(const char *json, long *_n, int *error, long *parse
 			p = c == '\'' || c == '"'? q : q - 1;
 		}
 	}
-	while (*p && isblank(*p)) ++p; // skip trailing blanks
+	while (*p && isspace(*p)) ++p; // skip trailing blanks
 	if (parsed_len) *parsed_len = p - json;
 	if (top != 1) *error = KSON_ERR_EXTRA_LEFT;
 
@@ -151,7 +151,7 @@ int main(int argc, char *argv[])
 {
 	kson_t *kson;
 	int error;
-	kson = kson_parse("{'a' : 1, 'b':[0,'isn\\'t',true],'d':[{}]}", &error);
+	kson = kson_parse("{'a' : 1, 'b':[0,'isn\\'t',true],'d':[{\n}]}", &error);
 	if (error == 0) {
 		kson_print(kson);
 		putchar('\n');
