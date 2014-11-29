@@ -28,27 +28,29 @@ typedef struct {
 	kson_node_t *nodes;
 } kson_t;
 
+#define kson_is_internal(p) ((p)->type == KSON_TYPE_BRACKET || (p)->type == KSON_TYPE_BRACE)
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 	/**
-	 * Parse a JSON string into nodes
+	 * Parse a JSON string
 	 *
-	 * @param json        JSON string
-	 * @param n_nodes     number of nodes
-	 * @param error       0 if no error; or set to one of KSON_ERR_* values
-	 * @param parsed_len  if not NULL, equal to the parsed length
+	 * @param json    JSON string
+	 * @param error   error code
 	 *
-	 * @return An array of size $n_nodes keeping parsed nodes
+	 * @return a pointer to kson_t if *error==0; or NULL otherwise
 	 */
-	kson_node_t *kson_parse_core(const char *json, long *n_nodes, int *error, long *parsed_len);
-
-	// Equivalent to: { kson->nodes = kson_parse_core(json, &kson->n_nodes, &error, 0); return *error? 0 : kson; } 
 	kson_t *kson_parse(const char *json, int *error);
 
+	/** Destroy a kson_t object */
 	void kson_destroy(kson_t *kson);
-	void kson_print(kson_t *kson);
+
+	const kson_node_t *kson_query(const kson_t *kson, int max_depth, ...);
+
+	void kson_print(const kson_t *kson);
+	kson_node_t *kson_parse_core(const char *json, long *n_nodes, int *error, long *parsed_len);
 
 #ifdef __cplusplus
 }

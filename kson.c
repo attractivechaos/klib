@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <ctype.h>
 #include <stdio.h>
 #include "kson.h"
@@ -118,7 +119,7 @@ kson_t *kson_parse(const char *json, int *error)
 	return kson;
 }
 
-void kson_print_recur(kson_node_t *nodes, kson_node_t *p)
+void kson_print_recur(const kson_node_t *nodes, const kson_node_t *p)
 {
 	if (p->key) {
 		printf("\"%s\"", p->key);
@@ -141,9 +142,43 @@ void kson_print_recur(kson_node_t *nodes, kson_node_t *p)
 	}
 }
 
-void kson_print(kson_t *kson)
+void kson_print(const kson_t *kson)
 {
 	kson_print_recur(kson->nodes, kson->nodes);
+}
+
+const kson_node_t *kson_vquery(const kson_node_t *nodes, const kson_node_t *root, int depth, va_list ap)
+{
+	const kson_node_t *p = root;
+	while (p && depth > 0) {
+		if (p->type == KSON_TYPE_BRACE) {
+			long i;
+			const char *q = va_arg(ap, const char*);
+			for (i = 0; i < (long)p->n; ++i) {
+				const kson_node_t *r = &nodes[i];
+				if (r->key && strcmp(r->key, q) == 0) {
+					p = r;
+					break;
+				}
+			}
+			if (i == (long)p->n) p = 0;
+		} else if (p->type == KSON_TYPE_BRACKET) {
+			long i = va_arg(ap, long);
+			p = i < (long)p->n? &nodes[p->v.child[i]] : 0;
+		} else break;
+		--depth;
+	}
+	return p;
+}
+
+const kson_node_t *kson_query(const kson_t *kson, int depth, ...)
+{
+	const kson_node_t *p;
+	va_list ap;
+	va_start(ap, depth);
+	p = kson_vquery(kson->nodes, kson->nodes, depth, ap);
+	va_end(ap);
+	return p;
 }
 
 #ifdef KSON_MAIN
@@ -153,6 +188,8 @@ int main(int argc, char *argv[])
 	int error;
 	kson = kson_parse("{'a' : 1, 'b':[0,'isn\\'t',true],'d':[{\n}]}", &error);
 	if (error == 0) {
+		const kson_node_t *p = kson_query(kson, 2, "b", 1);
+		printf("*** %s\n", p->v.str);
 		kson_print(kson);
 		putchar('\n');
 	} else {
