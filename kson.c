@@ -87,6 +87,7 @@ kson_node_t *kson_parse_core(const char *json, int *_n, int *error, const char *
 		}
 	}
 	*end = p;
+	if (top != 1) *error = KSON_ERR_EXTRA_LEFT;
 
 	free(stack);
 	*_n = n_a;
@@ -99,7 +100,7 @@ void kson_print_recur(kson_node_t *nodes, kson_node_t *p)
 		printf("\"%s\"", p->key);
 		if (p->v.str) putchar(':');
 	}
-	if (p->n) {
+	if (p->type == KSON_TYPE_BRACKET || p->type == KSON_TYPE_BRACE) {
 		int i;
 		putchar(p->type == KSON_TYPE_BRACKET? '[' : '{');
 		for (i = 0; i < p->n; ++i) {
@@ -107,7 +108,7 @@ void kson_print_recur(kson_node_t *nodes, kson_node_t *p)
 			kson_print_recur(nodes, &nodes[p->v.child[i]]);
 		}
 		putchar(p->type == KSON_TYPE_BRACKET? ']' : '}');
-	} else if (p->v.str) {
+	} else {
 		if (p->type != KSON_TYPE_NO_QUOTE)
 			putchar(p->type == KSON_TYPE_SGL_QUOTE? '\'' : '"');
 		printf("%s", p->v.str);
@@ -122,7 +123,7 @@ int main(int argc, char *argv[])
 	kson_node_t *nodes;
 	int n_nodes, error;
 	const char *end;
-	nodes = kson_parse_core("{'a':1, 'b':[1,'c',true]}", &n_nodes, &error, &end);
+	nodes = kson_parse_core("{'a':1, 'b':[1,'c',true],'d':[]}", &n_nodes, &error, &end);
 	if (error == 0) {
 		kson_print_recur(nodes, &nodes[0]);
 		putchar('\n');
