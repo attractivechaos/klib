@@ -14,18 +14,12 @@
 #define KSON_ERR_EXTRA_RIGHT 2
 #define KSON_ERR_NO_KEY      3
 
-struct kson_node_s;
-
-typedef union {
-	long i; // this is a temporary variable; don't use it!
-	struct kson_node_s *p;
-} kson_ptr_t;
-
 typedef struct kson_node_s {
 	uint64_t type:3, n:61;
 	char *key;
 	union {
-		kson_ptr_t *child;
+		size_t *tmp; // a temporary pointer used by the parser; don't use this!!!
+		const struct kson_node_s **child;
 		char *str;
 	} v;
 } kson_node_t;
@@ -66,7 +60,7 @@ static inline const kson_node_t *kson_by_key(const kson_node_t *p, const char *k
 {
 	long i;
 	for (i = 0; i < (long)p->n; ++i) {
-		const kson_node_t *q = p->v.child[i].p;
+		const kson_node_t *q = p->v.child[i];
 		if (q->key && strcmp(q->key, key) == 0)
 			return q;
 	}
@@ -75,7 +69,7 @@ static inline const kson_node_t *kson_by_key(const kson_node_t *p, const char *k
 
 static inline const kson_node_t *kson_by_index(const kson_node_t *p, long i)
 {
-	return 0 <= i && i < (long)p->n? p->v.child[i].p : 0;
+	return 0 <= i && i < (long)p->n? p->v.child[i] : 0;
 }
 
 #endif
