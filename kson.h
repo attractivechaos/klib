@@ -34,7 +34,7 @@ extern "C" {
 
 	kson_t *kson_parse(const char *json);
 	void kson_destroy(kson_t *kson);
-	const kson_node_t *kson_query(const kson_node_t *root, int max_depth, ...);
+	const kson_node_t *kson_by_path(const kson_node_t *root, int path_len, ...);
 	void kson_format(const kson_node_t *root);
 
 #ifdef __cplusplus

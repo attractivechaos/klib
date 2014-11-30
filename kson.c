@@ -135,7 +135,7 @@ kson_t *kson_parse(const char *json)
  *** Query ***
  *************/
 
-const kson_node_t *kson_query(const kson_node_t *p, int depth, ...)
+const kson_node_t *kson_by_path(const kson_node_t *p, int depth, ...)
 {
 	va_list ap;
 	va_start(ap, depth);
@@ -239,7 +239,7 @@ int main(int argc, char *argv[])
 	} else {
 		kson = kson_parse("{'a' : 1,'b':[0,'isn\\'t',true],'d':[{\n\n\n}]}");
 		if (kson) {
-			const kson_node_t *p = kson_query(kson->root, 2, "b", 1);
+			const kson_node_t *p = kson_by_path(kson->root, 2, "b", 1);
 			if (p) printf("*** %s\n", p->v.str);
 			else printf("!!! not found\n");
 			kson_format(kson->root);
