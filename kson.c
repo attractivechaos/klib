@@ -118,12 +118,13 @@ void kson_destroy(kson_t *kson)
 	free(kson->nodes); free(kson);
 }
 
-kson_t *kson_parse(const char *json, int *error)
+kson_t *kson_parse(const char *json)
 {
 	kson_t *kson;
+	int error;
 	kson = (kson_t*)calloc(1, sizeof(kson_t));
-	kson->nodes = kson_parse_core(json, &kson->n_nodes, error, 0);
-	if (*error) {
+	kson->nodes = kson_parse_core(json, &kson->n_nodes, &error, 0);
+	if (error) {
 		kson_destroy(kson);
 		return 0;
 	}
@@ -200,7 +201,6 @@ void kson_format(const kson_node_t *root)
 int main(int argc, char *argv[])
 {
 	kson_t *kson = 0;
-	int error;
 	if (argc > 1) {
 		FILE *fp;
 		int len = 0, max = 0, tmp, i;
@@ -218,7 +218,7 @@ int main(int argc, char *argv[])
 			}
 			fclose(fp);
 			// parse
-			kson = kson_parse(json, &error);
+			kson = kson_parse(json);
 			free(json);
 			if (kson) {
 				kson_format(kson->nodes);
@@ -237,17 +237,17 @@ int main(int argc, char *argv[])
 						else printf("Value: %s\n", p->v.str);
 					} else printf("Failed to find the slot\n");
 				}
-			} else printf("Error code: %d\n", error);
+			} else printf("Failed to parse\n");
 		}
 	} else {
-		kson = kson_parse("{'a' : 1,'b':[0,'isn\\'t',true],'d':[{\n\n\n}]}", &error);
-		if (error == 0) {
+		kson = kson_parse("{'a' : 1,'b':[0,'isn\\'t',true],'d':[{\n\n\n}]}");
+		if (kson) {
 			const kson_node_t *p = kson_query(kson->nodes, 2, "b", 1);
 			if (p) printf("*** %s\n", p->v.str);
 			else printf("!!! not found\n");
 			kson_format(kson->nodes);
 		} else {
-			printf("Error code: %d\n", error);
+			printf("Failed to parse\n");
 		}
 	}
 	kson_destroy(kson);

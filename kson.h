@@ -32,21 +32,9 @@ typedef struct {
 extern "C" {
 #endif
 
-	/**
-	 * Parse a JSON string
-	 *
-	 * @param json    JSON string
-	 * @param error   error code
-	 *
-	 * @return a pointer to kson_t if *error==0; or NULL otherwise
-	 */
-	kson_t *kson_parse(const char *json, int *error);
-
-	/** Destroy a kson_t object */
+	kson_t *kson_parse(const char *json);
 	void kson_destroy(kson_t *kson);
-
 	const kson_node_t *kson_query(const kson_node_t *root, int max_depth, ...);
-
 	void kson_format(const kson_node_t *root);
 
 #ifdef __cplusplus
