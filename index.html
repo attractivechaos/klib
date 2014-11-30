@@ -171,11 +171,15 @@ Error message and password prompt
 
 <li>Generic Programming in C</li>
 
+<li>KBtree: generic ordered map</li>
+
 <li>Khash: generic hash table</li>
 
 <li>Kseq: stream buffer and FASTA/Q parser</li>
 
 <li>Kson: simple JSON parser</li>
+
+<li>Ksort: sorting, shuffling, heap and k-small</li>
 
 <li>Kthread: simple threading models</li>
 
@@ -5434,7 +5438,7 @@ Error message and password prompt
 <div created="20141130022153074" creator="l" modified="20141130022153293" modifier="lh" title="$:/status/UserName">
 <pre>lh3</pre>
 </div>
-<div list="About [[Khash: generic hash table]] [[Kson: simple JSON parser]] [[Kseq: stream buffer and FASTA/Q parser]]" title="$:/StoryList">
+<div list="About" title="$:/StoryList">
 <pre></pre>
 </div>
 <div modified="20141130024552231" modifier="lh3" title="$:/temp/advancedsearch">
@@ -5540,7 +5544,7 @@ Error message and password prompt
     }
 }</pre>
 </div>
-<div created="20141130022418365" creator="lh3" modified="20141130162402779" modifier="lh3" tags="TableOfContents" title="About">
+<div created="20141130022418365" creator="lh3" modified="20141130180606822" modifier="lh3" tags="TableOfContents" title="About">
 <pre>[[Klib|https://github.com/attractivechaos/klib/]] is a standalone and lightweight C library distributed under [[MIT/X11 license|http://en.wikipedia.org/wiki/MIT_License]]. Most components are independent of external libraries, except the standard C library, and independent of each other. To use a component of this library, you only need to copy a couple of files to your source code tree without worrying about library dependencies.
 
 Klib strives for efficiency and a small memory footprint. Some components, such as hash table, B-tree, vector and sorting algorithms, are among the most efficient implementations of similar algorithms or data structures in all programming languages, in terms of both speed and memory use.
@@ -5548,8 +5552,8 @@ Klib strives for efficiency and a small memory footprint. Some components, such 
 !!!Common components
 
 * [[khash.h|Khash: generic hash table]]: generic hash table based on double hashing.
-* kbtree.h: generic search tree based on B-tree.
-* ksort.h: generic sort, including introsort, merge sort, heap sort, comb sort, Knuth shuffle and the k-small algorithm.
+* [[kbtree.h|KBtree: generic ordered map]]: generic search tree based on B-tree.
+* [[ksort.h|Ksort: sorting, shuffling, heap and k-small]]: generic sort, including introsort, merge sort, heap sort, comb sort, Knuth shuffle and the k-small algorithm.
 * [[kseq.h|Kseq: stream buffer and FASTA/Q parser]]: generic stream buffer and a FASTA/FASTQ format parser.
 * kvec.h: generic dynamic array.
 * klist.h: generic single-linked list and memory pool.
@@ -5718,7 +5722,50 @@ as type-specific code. A generic library written with `void*` will not get such
 performance boost.
 </pre>
 </div>
-<div created="20141130065006297" creator="lh3" modified="20141130171452341" modifier="lh3" tags="[[Library Documentations]]" title="Khash: generic hash table">
+<div created="20141130174442465" creator="lh3" modified="20141130175528243" modifier="lh3" tags="[[Library Documentations]]" title="KBtree: generic ordered map">
+<pre>!!Synopsis
+* Functionality: generic balanced search tree based on B-tree.
+* Library source code: [[kbtree.h|https://github.com/attractivechaos/klib/blob/master/kbtree.h]]
+* Dependencies: none
+* Related articles: [[B-tree vs binary search tree|https://attractivechaos.wordpress.com/2008/09/24/b-tree-vs-binary-search-tree/]] and [[Another look at my old benchmark|https://attractivechaos.wordpress.com/2008/10/07/another-look-at-my-old-benchmark/]]
+!!Example
+!!!Example 1: count distinct words on the command line
+```
+// gcc -O2 this_prog.c; ./a.out two one three two three three
+#include &lt;stdio.h&gt;
+#include &quot;kbtree.h&quot;
+
+typedef struct {
+    char *key;
+    int count;
+} elem_t;
+
+#define elem_cmp(a, b) (strcmp((a).key, (b).key))
+KBTREE_INIT(str, elem_t, elem_cmp)
+
+int main(int argc, char *argv[])
+{
+    kbtree_t(str) *b;
+    elem_t *p, t;
+    int i;
+    b = kb_init(str, KB_DEFAULT_SIZE);
+    for (i = 1; i &lt; argc; ++i) {
+        // no need to allocate; just use pointer
+        t.key = argv[i], t.count = 1;
+        p = kb_getp(str, b, &amp;t); // kb_get() also works
+        // IMPORTANT: put() only works if key is absent
+        if (!p) kb_putp(str, b, &amp;t);
+        else ++p-&gt;count;
+    }
+    // ordered tree traversal
+    #define traverse_func(p) printf(&quot;%d\t%s\n&quot;, (p)-&gt;count, (p)-&gt;key);
+    __kb_traverse(elem_t, b, traverse_func);
+    kb_destroy(str, b);
+    return 0;
+}
+```</pre>
+</div>
+<div created="20141130065006297" creator="lh3" modified="20141130174658059" modifier="lh3" tags="[[Library Documentations]]" title="Khash: generic hash table">
 <pre>!!Synopsis
 * Functionality: generic hash table with [[open addressing|http://en.wikipedia.org/wiki/Open_addressing]]
 * Library source code: [[khash.h|https://github.com/attractivechaos/klib/blob/master/khash.h]]
@@ -5747,7 +5794,7 @@ int main() {
   return 0;
 }
 ```
-!!!Example 2: hash table for strings (caller needs to free allocated memory)
+!!!Example 2: counting distinct words (hash table for strings)
 ```
 #include &lt;stdio.h&gt;
 #include &lt;string.h&gt;
@@ -5768,7 +5815,7 @@ int main(int argc, char *argv[])
         // else, the key is not touched; we do nothing
     }
     printf(&quot;# of distinct words: %d\n&quot;, kh_size(h));
-    // free memory allocated by strdup() above
+    // IMPORTANT: free memory allocated by strdup() above
     for (k = 0; k &lt; kh_end(h); ++k)
         if (kh_exist(h, k))
             free((char*)kh_key(h, k));
@@ -5921,6 +5968,44 @@ int main() {
   putchar('\n');
   kson_destroy(kson);
   return 0;
+}
+```</pre>
+</div>
+<div created="20141130180621998" creator="lh3" modified="20141130181347441" modifier="lh3" tags="[[Library Documentations]]" title="Ksort: sorting, shuffling, heap and k-small">
+<pre>!!Synopsis
+* Library source code: [[ksort.h|https://github.com/attractivechaos/klib/blob/master/ksort.h]]
+* Dependencies: none
+* Related articles: [[Comparison of internal sorting algorithms|https://attractivechaos.wordpress.com/2008/08/28/comparison-of-internal-sorting-algorithms/]], [[Calculating median|https://attractivechaos.wordpress.com/2008/09/13/calculating-median/]], [[A quick note on radix sort|https://attractivechaos.wordpress.com/2012/06/07/a-quick-note-on-radix-sort/]] and [[An update on radix sort|https://attractivechaos.wordpress.com/2012/06/10/an-update-on-radix-sort/]] (radix sort is not part of the library for now)
+!!Example
+```
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &quot;ksort.h&quot;
+
+typedef struct {
+    long key, value;
+} pair_t;
+
+#define pair_lt(a, b) ((a).key &lt; (b).key)
+KSORT_INIT(pair, pair_t, pair_lt)
+KSORT_INIT_GENERIC(long)
+
+int main()
+{
+    int N = 1000000, i;
+    pair_t *a, t;
+    srand48(11);
+    a = malloc(N * sizeof(pair_t));
+    for (i = 0; i &lt; N; ++i)
+        a[i].key = lrand48(), a[i].value = i;
+    // stable sort
+    ks_mergesort(pair, N, a, 0);
+    // unstable sort
+    ks_introsort(long, 2*N, (long*)a);
+    // k-th smallest element; 0&lt;=k&lt;N
+    t = ks_ksmall(pair, N, a, 10);
+    free(a);
+    return 0;
 }
 ```</pre>
 </div>
