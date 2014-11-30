@@ -1,8 +1,6 @@
 #ifndef KSON_H
 #define KSON_H
 
-#include <stdint.h>
-
 #define KSON_TYPE_NO_QUOTE  1
 #define KSON_TYPE_SGL_QUOTE 2
 #define KSON_TYPE_DBL_QUOTE 3
@@ -15,7 +13,7 @@
 #define KSON_ERR_NO_KEY      3
 
 typedef struct kson_node_s {
-	uint64_t type:3, n:61;
+	unsigned long long type:3, n:61;
 	char *key;
 	union {
 		struct kson_node_s **child;

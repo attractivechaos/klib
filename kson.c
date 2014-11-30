@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <assert.h>
 #include <ctype.h>
 #include <stdio.h>
 #include "kson.h"
@@ -14,7 +15,7 @@ kson_node_t *kson_parse_core(const char *json, long *_n, int *error, long *parse
 	long *stack = 0, top = 0, max = 0, n_a = 0, m_a = 0, i, j;
 	kson_node_t *a = 0, *u;
 	const char *p, *q;
-	intptr_t *tmp;
+	size_t *tmp;
 
 #define __push_back(y) do { \
 		if (top == max) { \
@@ -34,6 +35,7 @@ kson_node_t *kson_parse_core(const char *json, long *_n, int *error, long *parse
 		*(z) = &a[n_a++]; \
 	} while (0)
 
+	assert(sizeof(size_t) == sizeof(kson_node_t*));
 	*error = KSON_OK;
 	for (p = json; *p; ++p) {
 		while (*p && isspace(*p)) ++p;
@@ -58,7 +60,7 @@ kson_node_t *kson_parse_core(const char *json, long *_n, int *error, long *parse
 			u->key = u->v.str;
 			u->n = top - 1 - start;
 			u->v.child = (kson_node_t**)malloc(u->n * sizeof(kson_node_t*));
-			tmp = (intptr_t*)u->v.child;
+			tmp = (size_t*)u->v.child;
 			for (i = start + 1; i < top; ++i)
 				tmp[i - start - 1] = stack[i];
 			u->type = *p == ']'? KSON_TYPE_BRACKET : KSON_TYPE_BRACE;
@@ -98,7 +100,7 @@ kson_node_t *kson_parse_core(const char *json, long *_n, int *error, long *parse
 	if (top != 1) *error = KSON_ERR_EXTRA_LEFT;
 
 	for (i = 0; i < n_a; ++i)
-		for (j = 0, u = &a[i], tmp = (intptr_t*)u->v.child; j < (long)u->n; ++j)
+		for (j = 0, u = &a[i], tmp = (size_t*)u->v.child; j < (long)u->n; ++j)
 			u->v.child[j] = &a[tmp[j]];
 
 	free(stack);
