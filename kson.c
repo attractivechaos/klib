@@ -158,10 +158,7 @@ const kson_node_t *kson_query(const kson_node_t *p, int depth, ...)
 void kson_format_recur(const kson_node_t *p, int depth)
 {
 	long i;
-	if (p->key) {
-		printf("\"%s\"", p->key);
-		if (p->v.str) putchar(':');
-	}
+	if (p->key) printf("\"%s\":", p->key);
 	if (p->type == KSON_TYPE_BRACKET || p->type == KSON_TYPE_BRACE) {
 		putchar(p->type == KSON_TYPE_BRACKET? '[' : '{');
 		if (p->n) {
