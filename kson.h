@@ -25,7 +25,7 @@ typedef struct kson_node_s {
 
 typedef struct {
 	long n_nodes;
-	kson_node_t *nodes; // nodes[0] is the root
+	kson_node_t *root;
 } kson_t;
 
 #ifdef __cplusplus

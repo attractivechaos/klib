@@ -113,9 +113,9 @@ void kson_destroy(kson_t *kson)
 	long i;
 	if (kson == 0) return;
 	for (i = 0; i < kson->n_nodes; ++i) {
-		free(kson->nodes[i].key); free(kson->nodes[i].v.str);
+		free(kson->root[i].key); free(kson->root[i].v.str);
 	}
-	free(kson->nodes); free(kson);
+	free(kson->root); free(kson);
 }
 
 kson_t *kson_parse(const char *json)
@@ -123,7 +123,7 @@ kson_t *kson_parse(const char *json)
 	kson_t *kson;
 	int error;
 	kson = (kson_t*)calloc(1, sizeof(kson_t));
-	kson->nodes = kson_parse_core(json, &kson->n_nodes, &error, 0);
+	kson->root = kson_parse_core(json, &kson->n_nodes, &error, 0);
 	if (error) {
 		kson_destroy(kson);
 		return 0;
@@ -221,10 +221,10 @@ int main(int argc, char *argv[])
 			kson = kson_parse(json);
 			free(json);
 			if (kson) {
-				kson_format(kson->nodes);
+				kson_format(kson->root);
 				if (argc > 2) {
 					// path finding
-					const kson_node_t *p = kson->nodes;
+					const kson_node_t *p = kson->root;
 					for (i = 2; i < argc && p; ++i) {
 						if (p->type == KSON_TYPE_BRACKET)
 							p = kson_by_index(p, atoi(argv[i]));
@@ -242,10 +242,10 @@ int main(int argc, char *argv[])
 	} else {
 		kson = kson_parse("{'a' : 1,'b':[0,'isn\\'t',true],'d':[{\n\n\n}]}");
 		if (kson) {
-			const kson_node_t *p = kson_query(kson->nodes, 2, "b", 1);
+			const kson_node_t *p = kson_query(kson->root, 2, "b", 1);
 			if (p) printf("*** %s\n", p->v.str);
 			else printf("!!! not found\n");
-			kson_format(kson->nodes);
+			kson_format(kson->root);
 		} else {
 			printf("Failed to parse\n");
 		}
