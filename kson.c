@@ -218,7 +218,7 @@ int main(int argc, char *argv[])
 			else printf("Error code: %d\n", error);
 		}
 	} else {
-		kson = kson_parse("{'a' : 1\n'b':[0,'isn\\'t',true],'d':[{\n}]}", &error);
+		kson = kson_parse("{'a' : 1,'b':[0,'isn\\'t',true],'d':[{\n}]}", &error);
 		if (error == 0) {
 			const kson_node_t *p = kson_query(kson, 2, "b", 1);
 			if (p) printf("*** %s\n", p->v.str);
