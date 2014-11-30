@@ -18,8 +18,7 @@ typedef struct kson_node_s {
 	uint64_t type:3, n:61;
 	char *key;
 	union {
-		size_t *tmp; // a temporary pointer used by the parser; don't use this!!!
-		const struct kson_node_s **child;
+		struct kson_node_s **child;
 		char *str;
 	} v;
 } kson_node_t;

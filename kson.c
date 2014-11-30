@@ -14,6 +14,7 @@ kson_node_t *kson_parse_core(const char *json, long *_n, int *error, long *parse
 	long *stack = 0, top = 0, max = 0, n_a = 0, m_a = 0, i, j;
 	kson_node_t *a = 0, *u;
 	const char *p, *q;
+	intptr_t *tmp;
 
 #define __push_back(y) do { \
 		if (top == max) { \
@@ -56,9 +57,10 @@ kson_node_t *kson_parse_core(const char *json, long *_n, int *error, long *parse
 			u = &a[stack[start-1]];
 			u->key = u->v.str;
 			u->n = top - 1 - start;
-			u->v.tmp = (size_t*)malloc(u->n * sizeof(size_t));
+			u->v.child = (kson_node_t**)malloc(u->n * sizeof(kson_node_t*));
+			tmp = (intptr_t*)u->v.child;
 			for (i = start + 1; i < top; ++i)
-				u->v.tmp[i - start - 1] = stack[i];
+				tmp[i - start - 1] = stack[i];
 			u->type = *p == ']'? KSON_TYPE_BRACKET : KSON_TYPE_BRACE;
 			if ((top = start) == 1) break; // completed one object; remaining characters discarded
 		} else if (*p == ':') {
@@ -95,11 +97,9 @@ kson_node_t *kson_parse_core(const char *json, long *_n, int *error, long *parse
 	if (parsed_len) *parsed_len = p - json;
 	if (top != 1) *error = KSON_ERR_EXTRA_LEFT;
 
-	for (i = 0; i < n_a; ++i) {
-		u = &a[i];
-		for (j = 0; j < (long)u->n; ++j)
-			u->v.child[j] = &a[u->v.tmp[j]];
-	}
+	for (i = 0; i < n_a; ++i)
+		for (j = 0, u = &a[i], tmp = (intptr_t*)u->v.child; j < (long)u->n; ++j)
+			u->v.child[j] = &a[tmp[j]];
 
 	free(stack);
 	*_n = n_a;
