@@ -1,6 +1,8 @@
 #ifndef KSON_H
 #define KSON_H
 
+#include <string.h>
+
 #define KSON_TYPE_NO_QUOTE  1
 #define KSON_TYPE_SGL_QUOTE 2
 #define KSON_TYPE_DBL_QUOTE 3
