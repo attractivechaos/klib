@@ -55,4 +55,20 @@ extern "C" {
 }
 #endif
 
+static inline const kson_node_t *kson_by_key(const kson_node_t *nodes, const kson_node_t *p, const char *key)
+{
+	long i;
+	for (i = 0; i < (long)p->n; ++i) {
+		const kson_node_t *q = &nodes[p->v.child[i]];
+		if (q->key && strcmp(q->key, key) == 0)
+			return q;
+	}
+	return 0;
+}
+
+static inline const kson_node_t *kson_by_index(const kson_node_t *nodes, const kson_node_t *p, long i)
+{
+	return 0 <= i && i < (long)p->n? &nodes[p->v.child[i]] : 0;
+}
+
 #endif
