@@ -11,7 +11,7 @@
 
 kson_node_t *kson_parse_core(const char *json, long *_n, int *error, long *parsed_len)
 {
-	long *stack = 0, top = 0, max = 0, n_a = 0, m_a = 0;
+	long *stack = 0, top = 0, max = 0, n_a = 0, m_a = 0, i, j;
 	kson_node_t *a = 0, *u;
 	const char *p, *q;
 
@@ -56,9 +56,9 @@ kson_node_t *kson_parse_core(const char *json, long *_n, int *error, long *parse
 			u = &a[stack[start-1]];
 			u->key = u->v.str;
 			u->n = top - 1 - start;
-			u->v.child = (long*)malloc(u->n * sizeof(long));
+			u->v.child = (kson_ptr_t*)malloc(u->n * sizeof(kson_ptr_t));
 			for (i = start + 1; i < top; ++i)
-				u->v.child[i - start - 1] = stack[i];
+				u->v.child[i - start - 1].i = stack[i];
 			u->type = *p == ']'? KSON_TYPE_BRACKET : KSON_TYPE_BRACE;
 			if ((top = start) == 1) break; // completed one object; remaining characters discarded
 		} else if (*p == ':') {
@@ -95,6 +95,12 @@ kson_node_t *kson_parse_core(const char *json, long *_n, int *error, long *parse
 	if (parsed_len) *parsed_len = p - json;
 	if (top != 1) *error = KSON_ERR_EXTRA_LEFT;
 
+	for (i = 0; i < n_a; ++i) {
+		u = &a[i];
+		for (j = 0; j < (long)u->n; ++j)
+			u->v.child[j].p = &a[u->v.child[j].i];
+	}
+
 	free(stack);
 	*_n = n_a;
 	return a;
@@ -126,16 +132,15 @@ kson_t *kson_parse(const char *json, int *error)
  *** Query ***
  *************/
 
-const kson_node_t *kson_query(const kson_t *kson, int depth, ...)
+const kson_node_t *kson_query(const kson_node_t *p, int depth, ...)
 {
-	const kson_node_t *p = kson->nodes;
 	va_list ap;
 	va_start(ap, depth);
 	while (p && depth > 0) {
 		if (p->type == KSON_TYPE_BRACE) {
-			p = kson_by_key(kson->nodes, p, va_arg(ap, const char*));
+			p = kson_by_key(p, va_arg(ap, const char*));
 		} else if (p->type == KSON_TYPE_BRACKET) {
-			p = kson_by_index(kson->nodes, p, va_arg(ap, long));
+			p = kson_by_index(p, va_arg(ap, long));
 		} else break;
 		--depth;
 	}
@@ -147,7 +152,7 @@ const kson_node_t *kson_query(const kson_t *kson, int depth, ...)
  *** Fromat ***
  **************/
 
-void kson_format_recur(const kson_node_t *nodes, int depth, const kson_node_t *p)
+void kson_format_recur(const kson_node_t *p, int depth)
 {
 	long i;
 	if (p->key) {
@@ -164,7 +169,7 @@ void kson_format_recur(const kson_node_t *nodes, int depth, const kson_node_t *p
 					putchar(',');
 					putchar('\n'); for (i = 0; i <= depth; ++i) fputs("  ", stdout);
 				}
-				kson_format_recur(nodes, depth + 1, &nodes[p->v.child[i]]);
+				kson_format_recur(p->v.child[i].p, depth + 1);
 			}
 			putchar('\n'); for (i = 0; i < depth; ++i) fputs("  ", stdout);
 		}
@@ -178,9 +183,9 @@ void kson_format_recur(const kson_node_t *nodes, int depth, const kson_node_t *p
 	}
 }
 
-void kson_format(const kson_t *kson)
+void kson_format(const kson_node_t *root)
 {
-	kson_format_recur(kson->nodes, 0, kson->nodes);
+	kson_format_recur(root, 0);
 	putchar('\n');
 }
 
@@ -220,9 +225,9 @@ int main(int argc, char *argv[])
 					const kson_node_t *p = kson->nodes;
 					for (i = 2; i < argc && p; ++i) {
 						if (p->type == KSON_TYPE_BRACKET)
-							p = kson_by_index(kson->nodes, p, atoi(argv[i]));
+							p = kson_by_index(p, atoi(argv[i]));
 						else if (p->type == KSON_TYPE_BRACE)
-							p = kson_by_key(kson->nodes, p, argv[i]);
+							p = kson_by_key(p, argv[i]);
 						else p = 0;
 					}
 					if (p) {
@@ -235,7 +240,7 @@ int main(int argc, char *argv[])
 	} else {
 		kson = kson_parse("{'a' : 1,'b':[0,'isn\\'t',true],'d':[{\n}]}", &error);
 		if (error == 0) {
-			const kson_node_t *p = kson_query(kson, 2, "b", 1);
+			const kson_node_t *p = kson_query(kson->nodes, 2, "b", 1);
 			if (p) printf("*** %s\n", p->v.str);
 			else printf("!!! not found\n");
 			kson_format(kson);
