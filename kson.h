@@ -28,8 +28,6 @@ typedef struct {
 	kson_node_t *nodes; // nodes[0] is the root
 } kson_t;
 
-#define kson_is_internal(p) ((p)->type == KSON_TYPE_BRACKET || (p)->type == KSON_TYPE_BRACE)
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -55,10 +53,12 @@ extern "C" {
 }
 #endif
 
+#define kson_is_internal(p) ((p)->type == KSON_TYPE_BRACKET || (p)->type == KSON_TYPE_BRACE)
+
 static inline const kson_node_t *kson_by_key(const kson_node_t *p, const char *key)
 {
 	long i;
-	if (p->type != KSON_TYPE_BRACE) return 0;
+	if (!kson_is_internal(p)) return 0;
 	for (i = 0; i < (long)p->n; ++i) {
 		const kson_node_t *q = p->v.child[i];
 		if (q->key && strcmp(q->key, key) == 0)
@@ -69,7 +69,7 @@ static inline const kson_node_t *kson_by_key(const kson_node_t *p, const char *k
 
 static inline const kson_node_t *kson_by_index(const kson_node_t *p, long i)
 {
-	if (p->type != KSON_TYPE_BRACKET) return 0;
+	if (!kson_is_internal(p)) return 0;
 	return 0 <= i && i < (long)p->n? p->v.child[i] : 0;
 }
 
