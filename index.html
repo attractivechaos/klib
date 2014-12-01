@@ -117,6 +117,8 @@ Error message and password prompt
 
 <p>This <a class='tc-tiddlylink-external' href='http://tiddlywiki.com' target='_blank'>TiddlyWiki</a> contains the following tiddlers:</p><p><ul>
 
+<li>$:/config/PageControlButtons/Visibility/$:/core/ui/Buttons/control-panel</li>
+
 <li>$:/config/PageControlButtons/Visibility/$:/core/ui/Buttons/home</li>
 
 <li>$:/config/PageControlButtons/Visibility/$:/core/ui/Buttons/permaview</li>
@@ -125,9 +127,15 @@ Error message and password prompt
 
 <li>$:/DefaultTiddlers</li>
 
+<li>$:/GoogleAnalyticsAccount</li>
+
+<li>$:/GoogleAnalyticsDomain</li>
+
 <li>$:/Import</li>
 
 <li>$:/isEncrypted</li>
+
+<li>$:/plugins/tiddlywiki/googleanalytics</li>
 
 <li>$:/plugins/tiddlywiki/highlight</li>
 
@@ -179,6 +187,8 @@ Error message and password prompt
 
 <li>$:/themes/tiddlywiki/vanilla</li>
 
+<li>$:/view</li>
+
 <li>About</li>
 
 <li>CSS</li>
@@ -211,11 +221,14 @@ Error message and password prompt
 <!--~~ Ordinary tiddlers ~~-->
 
 <div id="storeArea" style="display:none;">
+<div modified="20141201151742085" modifier="lh3" title="$:/config/PageControlButtons/Visibility/$:/core/ui/Buttons/control-panel">
+<pre>hide</pre>
+</div>
 <div modified="20141130061623545" modifier="lh3" title="$:/config/PageControlButtons/Visibility/$:/core/ui/Buttons/home">
 <pre>show</pre>
 </div>
-<div modified="20141130061625790" modifier="lh3" title="$:/config/PageControlButtons/Visibility/$:/core/ui/Buttons/permaview">
-<pre>show</pre>
+<div modified="20141201151929794" modifier="lh3" title="$:/config/PageControlButtons/Visibility/$:/core/ui/Buttons/permaview">
+<pre>hide</pre>
 </div>
 <div author="JeremyRuston" core-version="&gt;=5.0.0" dependents="" description="TiddlyWiki5 core plugin" list="readme" plugin-priority="0" plugin-type="plugin" title="$:/core" type="application/json" version="5.1.5">
 <pre>{
@@ -5416,18 +5429,35 @@ Error message and password prompt
 <pre>[[About]]
 </pre>
 </div>
+<div created="20141201152513036" creator="lh3" modified="20141201152514399" modifier="lh3" title="$:/GoogleAnalyticsAccount">
+<pre>UA-57250169-1</pre>
+</div>
+<div created="20141201152431960" creator="lh3" modified="20141201152436350" modifier="lh3" title="$:/GoogleAnalyticsDomain">
+<pre>attractivechaos.github.io/klib/</pre>
+</div>
 <div status="complete" title="$:/Import">
 <pre>The following tiddlers were imported:
 
-# [[$:/plugins/tiddlywiki/highlight]]
-# [[$:/plugins/tiddlywiki/highlight/highlight.css]]
-# [[$:/plugins/tiddlywiki/highlight/highlight.js]]
-# [[$:/plugins/tiddlywiki/highlight/highlightblock.js]]
-# [[$:/plugins/tiddlywiki/highlight/license]]
-# [[$:/plugins/tiddlywiki/highlight/styles]]</pre>
+# [[$:/plugins/tiddlywiki/googleanalytics]]</pre>
 </div>
 <div title="$:/isEncrypted">
 <pre>no</pre>
+</div>
+<div author="JeremyRuston" core-version="&gt;=5.0.0" dependents="" description="Google Analytics plugin for TiddlyWiki5" list="readme" plugin-type="plugin" title="$:/plugins/tiddlywiki/googleanalytics" type="application/json" version="5.1.5">
+<pre>{
+    &quot;tiddlers&quot;: {
+        &quot;$:/plugins/tiddlywiki/googleanalytics/googleanalytics.js&quot;: {
+            &quot;text&quot;: &quot;/*\\\ntitle: $:/plugins/tiddlywiki/googleanalytics/googleanalytics.js\ntype: application/javascript\nmodule-type: startup\n\nRuns Google Analytics with the account number in the tiddler `$:/GoogleAnalyticsAccount` and the domain name in `$:/GoogleAnalyticsDomain`\n\n\\*/\n(function(){\n\n/*jslint node: true, browser: true */\n/*global $tw: false */\n\&quot;use strict\&quot;;\n\n// Export name and synchronous status\nexports.name = \&quot;google-analytics\&quot;;\nexports.platforms = [\&quot;browser\&quot;];\nexports.synchronous = true;\n\nvar GOOGLE_ANALYTICS_ACCOUNT = \&quot;$:/GoogleAnalyticsAccount\&quot;,\n\tGOOGLE_ANALYTICS_DOMAIN = \&quot;$:/GoogleAnalyticsDomain\&quot;;\n\nexports.startup = function() {\n\twindow._gaq = window._gaq || [];\n\t_gaq.push([\&quot;_setAccount\&quot;, $tw.wiki.getTiddlerText(GOOGLE_ANALYTICS_ACCOUNT)]);\n\t_gaq.push([\&quot;_setDomainName\&quot;, $tw.wiki.getTiddlerText(GOOGLE_ANALYTICS_DOMAIN)]);\n\t_gaq.push([\&quot;_trackPageview\&quot;]);\n\tvar ga = document.createElement(\&quot;script\&quot;);\n\tga.type = \&quot;text/javascript\&quot;;\n\tga.async = true;\n\tga.src = (\&quot;https:\&quot; == document.location.protocol ? \&quot;https://ssl\&quot; : \&quot;http://www\&quot;) + \&quot;.google-analytics.com/ga.js\&quot;;\n\tdocument.body.appendChild(ga);\n};\n\n})();\n&quot;,
+            &quot;title&quot;: &quot;$:/plugins/tiddlywiki/googleanalytics/googleanalytics.js&quot;,
+            &quot;type&quot;: &quot;application/javascript&quot;,
+            &quot;module-type&quot;: &quot;startup&quot;
+        },
+        &quot;$:/plugins/tiddlywiki/googleanalytics/readme&quot;: {
+            &quot;title&quot;: &quot;$:/plugins/tiddlywiki/googleanalytics/readme&quot;,
+            &quot;text&quot;: &quot;This plugin enables you to use Google Analytics to track access to your online TiddlyWiki document. These instructions assume you are using TiddlySpot to publish your wiki.\n\n# Go to the Google Analytics website: http://www.google.com/analytics/\n# Click the ''Access Google Analytics'' button and follow instructions to set up your account\n# Enter the name of your TiddlySpot domain, for example \&quot;mysite.tiddlyspot.com\&quot; \n# You will be given your own Tracking ID for this domain\n# Go to http://tiddlywiki.com -- open the More/System tab and drag the links to these three tiddlers across to a local copy of your site:\n#* [[$:/GoogleAnalyticsDomain]]\n#* [[$:/GoogleAnalyticsAccount]]\n#* [[$:/plugins/tiddlywiki/googleanalytics]]\n# Edit the first two of these tiddlers to reflect your Domain and Tracking ID\n# Upload the new version to TiddlySpot or other web host\n# Return to your Google Analytics page to check that your site is being tracked\n&quot;
+        }
+    }
+}</pre>
 </div>
 <div author="JoaoBolila" dependents="" description="Highlight.js plugin for TiddlyWiki5" list="license" plugin-type="plugin" title="$:/plugins/tiddlywiki/highlight" type="application/json" version="5.1.5">
 <pre>{
@@ -5722,13 +5752,13 @@ pre .xml .cdata {
 <div modified="20141130022235018" modifier="lh3" title="$:/state/tab--2112689675">
 <pre>$:/core/ui/ControlPanel/Basics</pre>
 </div>
-<div modified="20141130045901421" modifier="lh3" title="$:/state/tab-1749438307">
-<pre>$:/core/ui/ControlPanel/Appearance</pre>
+<div modified="20141201151935581" modifier="lh3" title="$:/state/tab-1749438307">
+<pre>$:/core/ui/ControlPanel/Plugins</pre>
 </div>
 <div modified="20141130024437745" modifier="lh3" title="$:/state/tab/moresidebar-401116514">
 <pre>$:/core/ui/MoreSideBar/Shadows</pre>
 </div>
-<div modified="20141201012147542" modifier="lh3" title="$:/state/tab/sidebar--1835078512">
+<div modified="20141201152717631" modifier="lh3" title="$:/state/tab/sidebar--1835078512">
 <pre>TableOfContents</pre>
 </div>
 <div modified="20141130044648025" modifier="lh3" title="$:/state/toc/TableOfContents-Library Documentations--81657105">
@@ -5737,7 +5767,7 @@ pre .xml .cdata {
 <div created="20141130022153074" creator="l" modified="20141130022153293" modifier="lh" title="$:/status/UserName">
 <pre>lh3</pre>
 </div>
-<div list="CSS [[Kthread: simple threading models]] [[Kson: simple JSON parser]] About" title="$:/StoryList">
+<div list="About" title="$:/StoryList">
 <pre></pre>
 </div>
 <div modified="20141130024552231" modifier="lh3" title="$:/temp/advancedsearch">
@@ -5842,6 +5872,9 @@ pre .xml .cdata {
         }
     }
 }</pre>
+</div>
+<div modified="20141201152658215" modifier="lh3" title="$:/view">
+<pre>classic</pre>
 </div>
 <div created="20141130022418365" creator="lh3" modified="20141130180606822" modifier="lh3" tags="TableOfContents" title="About">
 <pre>[[Klib|https://github.com/attractivechaos/klib/]] is a standalone and lightweight C library distributed under [[MIT/X11 license|http://en.wikipedia.org/wiki/MIT_License]]. Most components are independent of external libraries, except the standard C library, and independent of each other. To use a component of this library, you only need to copy a couple of files to your source code tree without worrying about library dependencies.
