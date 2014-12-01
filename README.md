@@ -13,7 +13,7 @@ as khash.h, kbtree.h, ksort.h and kvec.h, are among the most efficient
 implementations of similar algorithms or data structures in all programming
 languages, in terms of both speed and memory use.
 
-A new documentation is available [here](https://github.com/attractivechaos/klib)
+A new documentation is available [here](http://attractivechaos.github.io/klib/)
 which includes most information in this README file.
 
 ####Common components
