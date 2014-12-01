@@ -5881,7 +5881,7 @@ code {
   color: #333333;
 }</pre>
 </div>
-<div created="20141130035053305" creator="lh3" modified="20141130040155923" modifier="lh3" tags="TableOfContents" title="Generic Programming in C">
+<div created="20141130035053305" creator="lh3" modified="20141201010131035" modifier="lh3" tags="TableOfContents" title="Generic Programming in C">
 <pre>For the implementation of generic [[containers|http://en.wikipedia.org/wiki/Container_(abstract_data_type)]], klib extensively uses C
 macros. To use these data structures, we usually need to instantiate methods by
 expanding a long macro. This makes the source code look unusual or even ugly
@@ -5896,7 +5896,7 @@ klib (see [[this benchmark|http://attractivechaos.wordpress.com/2008/10/07/anoth
 To effectively use klib, it is important to understand how it achieves generic
 programming. We will use the hash table library as an example:
 
-```
+```c
 #include &quot;khash.h&quot;
 KHASH_MAP_INIT_INT(m32, char)        // instantiate structs and methods
 int main() {
@@ -5933,7 +5933,7 @@ _apparent_ undefined `m32` 'variable'). To understand why the code is correct,
 let's go a bit further into the source code of `khash.h`, whose skeleton looks
 like:
 
-```
+```c
 #define KHASH_INIT(name, SCOPE, key_t, val_t, is_map, _hashf, _hasheq) \
   typedef struct { \
     int n_buckets, size, n_occupied, upper_bound; \
@@ -5966,16 +5966,14 @@ like:
 	KHASH_INIT(name, static, unsigned, val_t, is_map, _int_hf, _int_heq)
 ```
 `KHASH_INIT()` is a huge macro defining all the structs and methods. When this
-macro is called, all the code inside it will be inserted by the [C
-preprocess][37] to the place where it is called. If the macro is called
+macro is called, all the code inside it will be inserted by the [[C preprocess|http://en.wikipedia.org/wiki/C_preprocessor]] to the place where it is called. If the macro is called
 multiple times, multiple copies of the code will be inserted. To avoid naming
-conflict of hash tables with different key-value types, the library uses [token
-concatenation][36], which is a preprocessor feature whereby we can substitute
+conflict of hash tables with different key-value types, the library uses [[token concatenation|http://en.wikipedia.org/wiki/C_preprocessor#Token_concatenation]], which is a preprocessor feature whereby we can substitute
 part of a symbol based on the parameter of the macro. In the end, the C
 preprocessor will generate the following code and feed it to the compiler
 (macro `kh_exist(h,k)` is a little complex and not expanded for simplicity):
 
-```
+```c
 typedef struct {
   int n_buckets, size, n_occupied, upper_bound;
   unsigned *flags;
