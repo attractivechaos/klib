@@ -15,10 +15,10 @@ languages, in terms of both speed and memory use.
 
 ####Common components
 
-* khash.h: generic hash table based on [double hashing][2].
-* kbtree.h: generic search tree based on [B-tree][3].
-* ksort.h: generic sort, including [introsort][4], [merge sort][5], [heap sort][6], [comb sort][7], [Knuth shuffle][8] and the [k-small][9] algorithm.
-* kseq.h: generic stream buffer and a [FASTA][10]/[FASTQ][11] format parser.
+* [khash.h][khash]: generic hash table based on [double hashing][2].
+* [kbtree.h][kbtree]: generic search tree based on [B-tree][3].
+* [ksort.h][ksort]: generic sort, including [introsort][4], [merge sort][5], [heap sort][6], [comb sort][7], [Knuth shuffle][8] and the [k-small][9] algorithm.
+* [kseq.h][kseq]: generic stream buffer and a [FASTA][10]/[FASTQ][11] format parser.
 * kvec.h: generic dynamic array.
 * klist.h: generic single-linked list and [memory pool][12].
 * kstring.{h,c}: basic string library.
@@ -227,3 +227,8 @@ can be found in the [test/][24] directory.
 [35]: http://attractivechaos.wordpress.com/2008/08/24/derivative-free-optimization-dfo/
 [36]: http://en.wikipedia.org/wiki/C_preprocessor#Token_concatenation
 [37]: http://en.wikipedia.org/wiki/C_preprocessor
+
+[kbtree]: http://attractivechaos.github.io/klib/#KBtree%3A%20generic%20ordered%20map:%5B%5BKBtree%3A%20generic%20ordered%20map%5D%5D
+[khash]: http://attractivechaos.github.io/klib/#Khash%3A%20generic%20hash%20table:%5B%5BKhash%3A%20generic%20hash%20table%5D%5D
+[kseq]: http://attractivechaos.github.io/klib/#Kseq%3A%20stream%20buffer%20and%20FASTA%2FQ%20parser:%5B%5BKseq%3A%20stream%20buffer%20and%20FASTA%2FQ%20parser%5D%5D
+[ksort]: http://attractivechaos.github.io/klib/#Ksort%3A%20sorting%2C%20shuffling%2C%20heap%20and%20k-small:%5B%5BKsort%3A%20sorting%2C%20shuffling%2C%20heap%20and%20k-small%5D%5D
