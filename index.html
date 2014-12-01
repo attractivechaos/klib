@@ -5728,7 +5728,7 @@ pre .xml .cdata {
 <div modified="20141130024437745" modifier="lh3" title="$:/state/tab/moresidebar-401116514">
 <pre>$:/core/ui/MoreSideBar/Shadows</pre>
 </div>
-<div modified="20141130195620205" modifier="lh3" title="$:/state/tab/sidebar--1835078512">
+<div modified="20141201012147542" modifier="lh3" title="$:/state/tab/sidebar--1835078512">
 <pre>TableOfContents</pre>
 </div>
 <div modified="20141130044648025" modifier="lh3" title="$:/state/toc/TableOfContents-Library Documentations--81657105">
@@ -5737,7 +5737,7 @@ pre .xml .cdata {
 <div created="20141130022153074" creator="l" modified="20141130022153293" modifier="lh" title="$:/status/UserName">
 <pre>lh3</pre>
 </div>
-<div list="About" title="$:/StoryList">
+<div list="CSS [[Kthread: simple threading models]] [[Kson: simple JSON parser]] About" title="$:/StoryList">
 <pre></pre>
 </div>
 <div modified="20141130024552231" modifier="lh3" title="$:/temp/advancedsearch">
@@ -5871,8 +5871,8 @@ Klib strives for efficiency and a small memory footprint. Some components, such 
 * ksw.{h,c}: Striped Smith-Waterman algorithm.
 * knhx.{h,c}: Newick tree format parser.</pre>
 </div>
-<div created="20141130030357686" creator="lh3" modified="20141130054810588" modifier="lh3" tags="$:/tags/Stylesheet" title="CSS" type="text/css">
-<pre>code, pre, kbd, samp {
+<div created="20141130030357686" creator="lh3" modified="20141201012055626" modifier="lh3" tags="$:/tags/Stylesheet" title="CSS" type="text/css">
+<pre>code, pre, kbd, samp, textarea {
   font-size: 12px;
   line-height: 18px;
   font-family: Monaco,Menlo,Consolas,&quot;Courier New&quot;,monospace;
@@ -6187,24 +6187,13 @@ int main(int argc, char *argv[])
 }
 ```</pre>
 </div>
-<div created="20141130024230535" creator="lh3" modified="20141130195545913" modifier="lh3" tags="[[Library Documentations]]" title="Kson: simple JSON parser">
+<div created="20141130024230535" creator="lh3" modified="20141201011939827" modifier="lh3" tags="[[Library Documentations]]" title="Kson: simple JSON parser">
 <pre>!!Synopsis
 * Functionality: read a JSON-like string into a tree structure and query given a path
 * Library source code: [[kson.h|https://github.com/attractivechaos/klib/blob/master/kson.h]] and [[kson.c|https://github.com/attractivechaos/klib/blob/master/kson.c]].
 * Dependencies: none
 * Example program: `gcc -DKSON_MAIN -O2 -o kson-test kson.c`
 * Limitations: no streaming parsing
-!!APIs
-* &quot;&quot;&quot;`kson_t *kson_parse(const char *json)`
-Parse a JSON string. Return NULL on errors.&quot;&quot;&quot;
-* &quot;&quot;&quot;`void kson_destroy(kson_t *kson)`
-Deallocate a `kson_t` object.&quot;&quot;&quot;
-* &quot;&quot;&quot;`const kson_node_t *kson_by_path(const kson_node_t *root, int path_len, ...)`
-Look for a node given a path of `path_len` in length, starting from node `root`. Return NULL on failure.&quot;&quot;&quot;
-* &quot;&quot;&quot;`const kson_node_t *kson_by_key(const kson_node_t *p, const char *key)`
-Retrieve `p`'s child named by `key`.&quot;&quot;&quot;
-* &quot;&quot;&quot;`const kson_node_t *kson_by_index(const kson_node_t *p, long i)`
-Retrieve `p`'s `i`-th child for `0&lt;=i&lt;p-&gt;n`.&quot;&quot;&quot;
 !!Examples
 !!!Example 1: parse and query with `kson_by_path()`
 ```c
@@ -6306,8 +6295,9 @@ int main()
 }
 ```</pre>
 </div>
-<div created="20141130160556556" creator="lh3" modified="20141130195638122" modifier="lh3" tags="[[Library Documentations]]" title="Kthread: simple threading models">
+<div created="20141130160556556" creator="lh3" modified="20141201012131686" modifier="lh3" tags="[[Library Documentations]]" title="Kthread: simple threading models">
 <pre>!!Synopsis
+
 * Functionality: simple multi-threading models.
 ** kt_for(): parallelize a `for` loop, similar to [[clik_for|http://faculty.knox.edu/dbunde/teaching/cilk/#cilk_for]].
 ** kt_pipeline(): parallelize a repeated multi-step pipeline with each step possibly on different threads.
@@ -6315,10 +6305,9 @@ int main()
 * Dependencies: [[POSIX thread|http://en.wikipedia.org/wiki/Native_POSIX_Thread_Library]]
 * Example program: [[kthread_test.c|https://github.com/attractivechaos/klib/blob/master/test/kthread_test.c]]
 * Blog post: [[Parallelize simple for loops|https://attractivechaos.wordpress.com/2013/10/11/parallelizing-simple-for-loops/]]
-!!APIs
-* &quot;&quot;&quot;`void kt_for(int t, void (*func)(void*,long,int), void *data, long n)`
-Run function `func(void *data, long i, int tid)` on `t` threads for total `n` times, where `0&lt;=i&lt;n` is the `i`-th call and `0&lt;=tid&lt;t` is the thread number.&quot;&quot;&quot;
+
 !!Examples
+
 !!!Example 1: compute the [[Mandelbrot set|http://en.wikipedia.org/wiki/Mandelbrot_set]] with kt_for()
 ```c
 // to compile: gcc this_prog.c kthread.c -pthread
