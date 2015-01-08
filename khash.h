@@ -586,7 +586,7 @@ static kh_inline khint_t __ac_Wang_hash(khint_t key)
 	KHASH_INIT(name, khint32_t, khval_t, 1, kh_int_hash_func, kh_int_hash_equal)
 
 /*! @function
-  @abstract     Instantiate a hash map containing 64-bit integer keys
+  @abstract     Instantiate a hash set containing 64-bit integer keys
   @param  name  Name of the hash table [symbol]
  */
 #define KHASH_SET_INIT_INT64(name)										\
@@ -602,7 +602,7 @@ static kh_inline khint_t __ac_Wang_hash(khint_t key)
 
 typedef const char *kh_cstr_t;
 /*! @function
-  @abstract     Instantiate a hash map containing const char* keys
+  @abstract     Instantiate a hash set containing const char* keys
   @param  name  Name of the hash table [symbol]
  */
 #define KHASH_SET_INIT_STR(name)										\
