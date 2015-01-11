@@ -58,8 +58,9 @@ static void *worker_pipeline(void *shared, int step, void *in)
 int main(int argc, char *argv[])
 {
 	pipeline_t pl;
+	int pl_threads;
 	if (argc == 1) {
-		fprintf(stderr, "Usage: reverse <in.txt> [n_threads]\n");
+		fprintf(stderr, "Usage: reverse <in.txt> [pipeline_threads [for_threads]]\n");
 		return 1;
 	}
 	pl.fp = strcmp(argv[1], "-")? fopen(argv[1], "r") : stdin;
@@ -67,11 +68,12 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "ERROR: failed to open the input file.\n");
 		return 1;
 	}
+	pl_threads = argc > 2? atoi(argv[2]) : 3;
 	pl.max_lines = 4096;
 	pl.buf_size = 0x10000;
-	pl.n_threads = argc > 2? atoi(argv[2]) : 1;
+	pl.n_threads = argc > 3? atoi(argv[3]) : 1;
 	pl.buf = calloc(pl.buf_size, 1);
-	kt_pipeline(3, worker_pipeline, &pl, 3);
+	kt_pipeline(pl_threads, worker_pipeline, &pl, 3);
 	free(pl.buf);
 	if (pl.fp != stdin) fclose(pl.fp);
 	return 0;
