@@ -17,7 +17,7 @@ typedef struct {
 	char **lines;
 } step_t;
 
-static void worker_for(void *_data, long i, int tid)
+static void worker_for(void *_data, long i, int tid) // kt_for() callback
 {
 	step_t *step = (step_t*)_data;
 	char *s = step->lines[i];
@@ -28,10 +28,10 @@ static void worker_for(void *_data, long i, int tid)
 		t = s[j], s[j] = s[l - 1 - j], s[l - 1 - j] = t;
 }
 
-static void *worker_pipeline(void *shared, int step, void *in)
+static void *worker_pipeline(void *shared, int step, void *in) // kt_pipeline() callback
 {
 	pipeline_t *p = (pipeline_t*)shared;
-	if (step == 0) {
+	if (step == 0) { // step 0: read lines into the buffer
 		step_t *s;
 		s = calloc(1, sizeof(step_t));
 		s->lines = calloc(p->max_lines, sizeof(char*));
@@ -41,10 +41,10 @@ static void *worker_pipeline(void *shared, int step, void *in)
 				break;
 		}
 		if (s->n_lines) return s;
-	} else if (step == 1) {
+	} else if (step == 1) { // step 1: reverse lines
 		kt_for(p->n_threads, worker_for, in, ((step_t*)in)->n_lines);
 		return in;
-	} else if (step == 2) {
+	} else if (step == 2) { // step 3: write the buffer to output
 		step_t *s = (step_t*)in;
 		while (s->n_lines > 0) {
 			fputs(s->lines[--s->n_lines], stdout);
