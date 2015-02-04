@@ -99,9 +99,11 @@
 		return kl;														\
 	}																	\
 	SCOPE void kl_destroy_##name(kl_##name##_t *kl) {					\
-		kl1_##name *p;													\
-		for (p = kl->head; p != kl->tail; p = p->next)					\
+		kl1_##name *p, *next_p;											\
+		for (p = kl->head; p != kl->tail; p = next_p){					\
+			next_p = p->next;											\
 			kmp_free(name, kl->mp, p);									\
+		}																\
 		kmp_free(name, kl->mp, p);										\
 		kmp_destroy(name, kl->mp);										\
 		free(kl);														\
