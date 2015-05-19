@@ -78,7 +78,7 @@ static int http_open(const char *fn)
 	} else {
 		host = (strstr(proxy, "http://") == proxy)? strdup(proxy + 7) : strdup(proxy);
 		for (q = host; *q && *q != ':'; ++q);
-		if (*q == ':') *q++ = 0; 
+		if (*q == ':') *q++ = 0;
 		port = strdup(*q? q : "80");
 		path = strdup(fn);
 	}
@@ -152,7 +152,7 @@ static int ftp_open(const char *fn)
 	char host2[80], port2[10];
 	int v[6], l, fd = -1, ret, pasv_port, pasv_ip[4];
 	ftpaux_t aux;
-	
+
 	/* parse URL */
 	if (strstr(fn, "ftp://") != fn) return 0;
 	for (p = (char*)fn + 6; *p && *p != '/'; ++p);
@@ -163,7 +163,7 @@ static int ftp_open(const char *fn)
 	strncpy(host, fn + 6, l);
 	retr = calloc(strlen(p) + 8, 1);
 	sprintf(retr, "RETR %s\r\n", p);
-	
+
 	/* connect to ctrl */
 	memset(&aux, 0, sizeof(ftpaux_t));
 	aux.ctrl_fd = socket_connect(host, port);

@@ -66,7 +66,7 @@ int ksplit_core(char *s, int delimiter, int *_max, int **_offsets)
 	int i, n, max, last_char, last_start, *offsets, l;
 	n = 0; max = *_max; offsets = *_offsets;
 	l = strlen(s);
-	
+
 #define __ksplit_aux do {						\
 		if (_offsets) {						\
 			s[i] = 0;					\

@@ -150,7 +150,7 @@ int SAIS_CORE(const unsigned char *T, saint_t *SA, saint_t fs, saint_t n, saint_
 	}
 	induceSA(T, SA, C, B, n, k, cs);
 	if (fs < k) free(C);
-	/* pack all the sorted LMS into the first m items of SA 
+	/* pack all the sorted LMS into the first m items of SA
 	   2*m must be not larger than n (see Nong et al. for the proof) */
 	for (i = 0, m = 0; i < n; ++i) {
 		saint_t p = SA[i];

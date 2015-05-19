@@ -392,7 +392,7 @@ knetFile *khttp_parse_url(const char *fn, const char *mode)
 	} else {
 		fp->host = (strstr(proxy, "http://") == proxy)? strdup(proxy + 7) : strdup(proxy);
 		for (q = fp->host; *q && *q != ':'; ++q);
-		if (*q == ':') *q++ = 0; 
+		if (*q == ':') *q++ = 0;
 		fp->port = strdup(*q? q : "80");
 		fp->path = strdup(fn);
 	}
@@ -473,7 +473,7 @@ knetFile *knet_open(const char *fn, const char *mode)
 		 * be undefined on some systems, although it is defined on my
 		 * Mac and the Linux I have tested on. */
 		int fd = open(fn, O_RDONLY | O_BINARY);
-#else		
+#else
 		int fd = open(fn, O_RDONLY);
 #endif
 		if (fd == -1) {

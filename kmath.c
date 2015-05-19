@@ -7,7 +7,7 @@
  *** Pseudo-random number generator ***
  **************************************/
 
-/* 
+/*
    64-bit Mersenne Twister pseudorandom number generator. Adapted from:
 
      http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/VERSIONS/C-LANG/mt19937-64.c
@@ -29,7 +29,7 @@ struct _krand_t {
 static void kr_srand0(krint64_t seed, krand_t *kr)
 {
 	kr->mt[0] = seed;
-	for (kr->mti = 1; kr->mti < KR_NN; ++kr->mti) 
+	for (kr->mti = 1; kr->mti < KR_NN; ++kr->mti)
 		kr->mt[kr->mti] = 6364136223846793005ULL * (kr->mt[kr->mti - 1] ^ (kr->mt[kr->mti - 1] >> 62)) + kr->mti;
 }
 
@@ -87,14 +87,14 @@ int main(int argc, char *argv[])
  ******************************/
 
 /* Hooke-Jeeves algorithm for nonlinear minimization
- 
+
    Based on the pseudocodes by Bell and Pike (CACM 9(9):684-685), and
    the revision by Tomlin and Smith (CACM 12(11):637-638). Both of the
    papers are comments on Kaupe's Algorithm 178 "Direct Search" (ACM
    6(6):313-314). The original algorithm was designed by Hooke and
    Jeeves (ACM 8:212-229). This program is further revised according to
    Johnson's implementation at Netlib (opt/hooke.c).
- 
+
    Hooke-Jeeves algorithm is very simple and it works quite well on a
    few examples. However, it might fail to converge due to its heuristic
    nature. A possible improvement, as is suggested by Johnson, may be to

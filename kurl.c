@@ -100,7 +100,7 @@ static int fill_buffer(kurl_t *ku) // fill the buffer
 			int maxfd = -1;
 			long curl_to = -1;
 			struct timeval to;
-			// the following is adaped from docs/examples/fopen.c 
+			// the following is adaped from docs/examples/fopen.c
 			to.tv_sec = 10, to.tv_usec = 0; // 10 seconds
 			curl_multi_timeout(ku->multi, &curl_to);
 			if (curl_to >= 0) {
