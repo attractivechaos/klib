@@ -3,51 +3,29 @@
 
 #include <stdint.h>
 
-#define KEO_NULL  0
-#define KEO_PLUS  1
-#define KEO_MINUS 2
-#define KEO_BNOT  3
-#define KEO_LNOT  4
-#define KEO_MUL   5
-#define KEO_DIV   6
-#define KEO_QUO   7
-#define KEO_ADD   8
-#define KEO_SUB   9
-#define KEO_LSH  10
-#define KEO_RSH  11
-#define KEO_LT   12
-#define KEO_LE   13
-#define KEO_GT   14
-#define KEO_GE   15
-#define KEO_EQ   16
-#define KEO_NE   17
-#define KEO_BAND 18
-#define KEO_BXOR 19
-#define KEO_BOR  20
-#define KEO_LAND 21
-#define KEO_LOR  22
-
-#define KET_NULL  0
-#define KET_VAL   1 // constant
-#define KET_OP    2
-#define KET_FUNC  3
-
-#define KEV_REAL  1
-#define KEV_INT   2
-#define KEV_STR   3
-#define KEV_VAR   4
+struct kexpr_s;
+typedef struct kexpr_s kexpr_t;
 
 #define KEE_UNDQ  1 // unmatched double quotation marks
 #define KEE_UNLP  2 // unmatched left parentheses
 #define KEE_UNRP  4 // unmatched right parentheses
 #define KEE_UNTO  8 // unknown tokens
+#define KEE_FUNC 16 // wrong function
 
-typedef struct {
-	uint32_t ttype:16, vtype:16;
-	int32_t op:8, n_vals:24;
-	char *s;
-	double r;
-	int64_t i;
-} ke1_t;
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+kexpr_t *ke_parse(const char *_s, int *err);
+void ke_destroy(kexpr_t *ke);
+void ke_print(const kexpr_t *ke);
+int ke_set_int(kexpr_t *ke, const char *var, int64_t x);
+int ke_set_real(kexpr_t *ke, const char *var, double x);
+int ke_set_str(kexpr_t *ke, const char *var, const char *x);
+int ke_eval(const kexpr_t *ke);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
