@@ -32,7 +32,7 @@
 #define KEO_LOR  24
 
 #define KET_NULL  0
-#define KET_VAL   1 // constant
+#define KET_VAL   1
 #define KET_OP    2
 #define KET_FUNC  3
 
@@ -44,7 +44,7 @@
 typedef struct {
 	uint32_t ttype:16, vtype:16;
 	int32_t op:8, n_args:24;
-	char *s;
+	char *name;
 	double r;
 	int64_t i;
 } ke1_t;
@@ -80,7 +80,7 @@ static ke1_t ke_read_token(char *p, char **r, int *err, int last_is_val) // it d
 		for (; *p && (*p == '_' || isalnum(*p)); ++p);
 		if (*p == '(') e.ttype = KET_FUNC, e.n_args = 1;
 		else e.ttype = KET_VAL, e.vtype = KEV_VAR;
-		e.s = strndup(q, p - q);
+		e.name = strndup(q, p - q);
 		e.i = 0, e.r = 0.;
 		*r = p;
 	} else if (isdigit(*p)) { // a number
@@ -104,7 +104,7 @@ static ke1_t ke_read_token(char *p, char **r, int *err, int last_is_val) // it d
 		if (*p == '"') {
 			e.ttype = KET_VAL;
 			e.vtype = KEV_STR;
-			e.s = strndup(q + 1, p - q - 1);
+			e.name = strndup(q + 1, p - q - 1);
 			*r = p + 1;
 		} else *err |= KEE_UNDQ, *r = p;
 	} else {
@@ -175,7 +175,7 @@ static ke1_t *ke_parse_core(const char *_s, int *_n, int *err)
 				break;
 			} else --n_op; // pop out '('
 			++p;
-		} else if (*p == ',') { // FIXME: not implemented yet
+		} else if (*p == ',') {
 			while (n_op > 0 && op[n_op-1].op >= 0) {
 				u = push_back(&out, &n_out, &m_out);
 				*u = op[--n_op];
@@ -247,7 +247,7 @@ void ke_destroy(kexpr_t *ke)
 {
 	int i;
 	if (ke == 0) return;
-	for (i = 0; i < ke->n; ++i) free(ke->e[i].s);
+	for (i = 0; i < ke->n; ++i) free(ke->e[i].name);
 	free(ke->e); free(ke);
 }
 
@@ -278,12 +278,12 @@ void ke_print(const kexpr_t *ke)
 		if (u->ttype == KET_VAL) {
 			if (u->vtype == KEV_REAL) printf("%g", u->r);
 			else if (u->vtype == KEV_INT) printf("%lld", (long long)u->i);
-			else if (u->vtype == KEV_STR) printf("\"%s\"", u->s);
-			else if (u->vtype == KEV_VAR) printf("%s", u->s);
+			else if (u->vtype == KEV_STR) printf("\"%s\"", u->name);
+			else if (u->vtype == KEV_VAR) printf("%s", u->name);
 		} else if (u->ttype == KET_OP) {
 			printf("%s", ke_opstr[u->op]);
 		} else if (u->ttype == KET_FUNC) {
-			printf("%s(%d)", u->s, u->n_args);
+			printf("%s(%d)", u->name, u->n_args);
 		}
 	}
 	putchar('\n');
