@@ -10,24 +10,26 @@
 #define KEO_MINUS 2
 #define KEO_BNOT  3
 #define KEO_LNOT  4
-#define KEO_MUL   5
-#define KEO_DIV   6
-#define KEO_QUO   7
-#define KEO_ADD   8
-#define KEO_SUB   9
-#define KEO_LSH  10
-#define KEO_RSH  11
-#define KEO_LT   12
-#define KEO_LE   13
-#define KEO_GT   14
-#define KEO_GE   15
-#define KEO_EQ   16
-#define KEO_NE   17
-#define KEO_BAND 18
-#define KEO_BXOR 19
-#define KEO_BOR  20
-#define KEO_LAND 21
-#define KEO_LOR  22
+#define KEO_POW   5
+#define KEO_MUL   6
+#define KEO_DIV   7
+#define KEO_IDIV  8
+#define KEO_MOD   9
+#define KEO_ADD  10
+#define KEO_SUB  11
+#define KEO_LSH  12
+#define KEO_RSH  13
+#define KEO_LT   14
+#define KEO_LE   15
+#define KEO_GT   16
+#define KEO_GE   17
+#define KEO_EQ   18
+#define KEO_NE   19
+#define KEO_BAND 20
+#define KEO_BXOR 21
+#define KEO_BOR  22
+#define KEO_LAND 23
+#define KEO_LOR  24
 
 #define KET_NULL  0
 #define KET_VAL   1 // constant
@@ -47,10 +49,11 @@ typedef struct {
 	int64_t i;
 } ke1_t;
 
-static int ke_op[23] = {
+static int ke_op[25] = {
 	0,
-	2<<1|1, 2<<1|1, 2<<1|1, 2<<1|1,
-	3<<1, 3<<1, 3<<1,
+	1<<1|1, 1<<1|1, 1<<1|1, 1<<1|1,
+	2<<1|1,
+	3<<1, 3<<1, 3<<1, 3<<1,
 	4<<1, 4<<1,
 	5<<1, 5<<1,
 	6<<1, 6<<1, 6<<1, 6<<1,
@@ -106,19 +109,21 @@ static ke1_t ke_read_token(char *p, char **r, int *err, int last_is_val) // it d
 		} else *err |= KEE_UNDQ, *r = p;
 	} else {
 		e.ttype = KET_OP;
-		if (*p == '*') e.op = KEO_MUL, *r = q + 1; // FIXME: NOT working for unary operators
+		if (*p == '*' && p[1] == '*') e.op = KEO_POW, *r = q + 2;
+		else if (*p == '*') e.op = KEO_MUL, *r = q + 1; // FIXME: NOT working for unary operators
+		else if (*p == '/' && p[1] == '/') e.op = KEO_IDIV, *r = q + 2;
 		else if (*p == '/') e.op = KEO_DIV, *r = q + 1;
-		else if (*p == '%') e.op = KEO_QUO, *r = q + 1;
+		else if (*p == '%') e.op = KEO_MOD, *r = q + 1;
 		else if (*p == '+') e.op = last_is_val? KEO_ADD : KEO_PLUS, *r = q + 1;
 		else if (*p == '-') e.op = last_is_val? KEO_SUB : KEO_MINUS, *r = q + 1;
-		else if (*p == '=' && *p == '=') e.op = KEO_EQ, *r = q + 2;
-		else if (*p == '!' && *p == '=') e.op = KEO_NE, *r = q + 2;
-		else if (*p == '>' && *p == '=') e.op = KEO_GE, *r = q + 2;
-		else if (*p == '<' && *p == '=') e.op = KEO_LE, *r = q + 2;
+		else if (*p == '=' && p[1] == '=') e.op = KEO_EQ, *r = q + 2;
+		else if (*p == '!' && p[1] == '=') e.op = KEO_NE, *r = q + 2;
+		else if (*p == '>' && p[1] == '=') e.op = KEO_GE, *r = q + 2;
+		else if (*p == '<' && p[1] == '=') e.op = KEO_LE, *r = q + 2;
 		else if (*p == '>') e.op = KEO_GT, *r = q + 1;
 		else if (*p == '<') e.op = KEO_LT, *r = q + 1;
-		else if (*p == '|' && *p == '|') e.op = KEO_LOR, *r = q + 2;
-		else if (*p == '&' && *p == '&') e.op = KEO_LAND, *r = q + 2;
+		else if (*p == '|' && p[1] == '|') e.op = KEO_LOR, *r = q + 2;
+		else if (*p == '&' && p[1] == '&') e.op = KEO_LAND, *r = q + 2;
 		else if (*p == '|') e.op = KEO_BOR, *r = q + 1;
 		else if (*p == '&') e.op = KEO_BAND, *r = q + 1;
 		else if (*p == '^') e.op = KEO_BXOR, *r = q + 1;
@@ -250,7 +255,8 @@ void ke_destroy(kexpr_t *ke)
 static char *ke_opstr[] = {
 	"",
 	"+(1)", "-(1)", "~", "!",
-	"*", "/", "%",
+	"**",
+	"*", "/", "//", "%",
 	"+", "-",
 	"<<", ">>",
 	"<", "<=", ">", ">=",
@@ -265,6 +271,7 @@ static char *ke_opstr[] = {
 void ke_print(const kexpr_t *ke)
 {
 	int i;
+	if (ke == 0) return;
 	for (i = 0; i < ke->n; ++i) {
 		const ke1_t *u = &ke->e[i];
 		if (i) putchar(' ');
@@ -290,7 +297,7 @@ int main()
 {
 	int err;
 	kexpr_t *ke;
-	ke = ke_parse("ibeta(sin(-5),6))", &err);
+	ke = ke_parse("6**2**2-3", &err);
 	ke_print(ke);
 	ke_destroy(ke);
 	return 0;
