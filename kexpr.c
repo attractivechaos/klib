@@ -66,6 +66,22 @@ static int ke_op[25] = {
 	12<<1
 };
 
+static char *ke_opstr[] = {
+	"",
+	"+(1)", "-(1)", "~", "!",
+	"**",
+	"*", "/", "//", "%",
+	"+", "-",
+	"<<", ">>",
+	"<", "<=", ">", ">=",
+	"==", "!=",
+	"&",
+	"^",
+	"|",
+	"&&",
+	"||"
+};
+
 struct kexpr_s {
 	int n;
 	ke1_t *e;
@@ -265,6 +281,11 @@ int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r)
 		p->i _op q->i; p->r = (double)p->i; \
 		p->vtype = KEV_INT; \
 	} while (0)
+#define _do_func1(_func) do { \
+		p = &stack[top-1]; \
+		p->r = _func(p->r); p->i = (int64_t)(p->r + .5); \
+		p->vtype = KEV_REAL; \
+	} while (0)
 
 	ke1_t *stack, *p, *q;
 	int i, top = 0, err = 0;
@@ -336,6 +357,17 @@ int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r)
 				p->i = !p->i; p->r = (double)p->i;
 				p->vtype = KEV_INT;
 			}
+		} else if (e->ttype == KET_FUNC) {
+			if (strcmp(e->name, "abs") == 0) {
+				p = &stack[top-1];
+				if (p->vtype == KEV_INT) p->i = abs(p->i), p->r = (double)p->i;
+				else p->r = fabs(p->r), p->i = (int64_t)(p->r + .5);
+			} else if (strcmp(e->name, "log") == 0) _do_func1(log);
+			else if (strcmp(e->name, "exp") == 0) _do_func1(exp);
+			else if (strcmp(e->name, "log2") == 0) _do_func1(log2);
+			else if (strcmp(e->name, "exp2") == 0) _do_func1(exp2);
+			else if (strcmp(e->name, "log10") == 0) _do_func1(log10);
+			else if (strcmp(e->name, "sqrt") == 0) _do_func1(sqrt);
 		}
 	}
 	if (top != 1) err |= KEE_ARG;
@@ -358,23 +390,6 @@ void ke_destroy(kexpr_t *ke)
 	}
 	free(ke->e); free(ke);
 }
-
-
-static char *ke_opstr[] = {
-	"",
-	"+(1)", "-(1)", "~", "!",
-	"**",
-	"*", "/", "//", "%",
-	"+", "-",
-	"<<", ">>",
-	"<", "<=", ">", ">=",
-	"==", "!=",
-	"&",
-	"^",
-	"|",
-	"&&",
-	"||"
-};
 
 void ke_print(const kexpr_t *ke)
 {
