@@ -6,9 +6,13 @@
 #include <math.h>
 #include "kexpr.h"
 
+/***************
+ * Definitions *
+ ***************/
+
 #define KEO_NULL  0
-#define KEO_PLUS  1
-#define KEO_MINUS 2
+#define KEO_POS  1
+#define KEO_NEG 2
 #define KEO_BNOT  3
 #define KEO_LNOT  4
 #define KEO_POW   5
@@ -41,10 +45,16 @@
 #define KEV_INT   2
 #define KEV_STR   3
 
-typedef struct {
+struct ke1_s;
+
+typedef struct ke1_s {
 	uint32_t ttype:16, vtype:16;
 	int32_t op:8, n_args:24;
 	char *name, *s;
+	union {
+		void (*of)(struct ke1_s *a, struct ke1_s *b);
+		double (*ff1)(double); // not used for now
+	} f;
 	double r;
 	int64_t i;
 } ke1_t;
@@ -86,6 +96,61 @@ struct kexpr_s {
 	ke1_t *e;
 };
 
+/**********************
+ * Operator functions *
+ **********************/
+
+#define KE_GEN_CMP(_type, _op) \
+	void ke_op_##_type(ke1_t *p, ke1_t *q) { \
+		if (p->vtype == KEV_STR && q->vtype == KEV_STR) p->i = (strcmp(p->s, q->s) _op 0); \
+		else p->i = p->vtype == KEV_REAL || q->vtype == KEV_REAL? (p->r _op q->r) : (p->i _op q->i); \
+		p->r = (double)p->i; \
+		p->vtype = KEV_INT; \
+	}
+
+KE_GEN_CMP(KEO_LT, <)
+KE_GEN_CMP(KEO_LE, <=)
+KE_GEN_CMP(KEO_GT, >)
+KE_GEN_CMP(KEO_GE, >=)
+KE_GEN_CMP(KEO_EQ, ==)
+KE_GEN_CMP(KEO_NE, !=)
+
+#define KE_GEN_BIN_INT(_type, _op) \
+	void ke_op_##_type(ke1_t *p, ke1_t *q) { \
+		p->i _op q->i; p->r = (double)p->i; \
+		p->vtype = KEV_INT; \
+	}
+
+KE_GEN_BIN_INT(KEO_BAND, &=)
+KE_GEN_BIN_INT(KEO_BOR, |=)
+KE_GEN_BIN_INT(KEO_BXOR, ^=)
+KE_GEN_BIN_INT(KEO_LSH, <<=)
+KE_GEN_BIN_INT(KEO_RSH, >>=)
+KE_GEN_BIN_INT(KEO_MOD, %=)
+KE_GEN_BIN_INT(KEO_IDIV, /=)
+
+#define KE_GEN_BIN_BOTH(_type, _op) \
+	void ke_op_##_type(ke1_t *p, ke1_t *q) { \
+		p->i _op q->i; p->r _op q->r; \
+		p->vtype = p->vtype == KEV_REAL || q->vtype == KEV_REAL? KEV_REAL : KEV_INT; \
+	}
+
+KE_GEN_BIN_BOTH(KEO_ADD, +=)
+KE_GEN_BIN_BOTH(KEO_SUB, -=)
+KE_GEN_BIN_BOTH(KEO_MUL, *=)
+
+void ke_op_KEO_DIV(ke1_t *p, ke1_t *q)  { p->r /= q->r, p->i = (int64_t)(p->r + .5); p->vtype = KEV_REAL; }
+void ke_op_KEO_LAND(ke1_t *p, ke1_t *q) { p->i = (p->i && q->i); p->r = p->i; p->vtype = KEV_INT; }
+void ke_op_KEO_LOR(ke1_t *p, ke1_t *q)  { p->i = (p->i || q->i); p->r = p->i; p->vtype = KEV_INT; }
+void ke_op_KEO_POW(ke1_t *p, ke1_t *q)  { p->r = pow(p->r, q->r), p->i = (int64_t)(p->r + .5); p->vtype = p->vtype == KEV_REAL || q->vtype == KEV_REAL? KEV_REAL : KEV_INT; }
+void ke_op_KEO_BNOT(ke1_t *p, ke1_t *q) { p->i = ~p->i; p->r = (double)p->i; p->vtype = KEV_INT; }
+void ke_op_KEO_LNOT(ke1_t *p, ke1_t *q) { p->i = !p->i; p->r = (double)p->i; p->vtype = KEV_INT; }
+void ke_op_KEO_POS(ke1_t *p, ke1_t *q)  { } // do nothing
+void ke_op_KEO_NEG(ke1_t *p, ke1_t *q)  { p->i = -p->i, p->r = -p->r; }
+
+/**********
+ * Parser *
+ **********/
 
 static ke1_t ke_read_token(char *p, char **r, int *err, int last_is_val) // it doesn't parse parentheses
 {
@@ -127,28 +192,34 @@ static ke1_t ke_read_token(char *p, char **r, int *err, int last_is_val) // it d
 		} else *err |= KEE_UNDQ, *r = p;
 	} else {
 		e.ttype = KET_OP;
-		if (*p == '*' && p[1] == '*') e.op = KEO_POW, *r = q + 2;
-		else if (*p == '*') e.op = KEO_MUL, *r = q + 1; // FIXME: NOT working for unary operators
-		else if (*p == '/' && p[1] == '/') e.op = KEO_IDIV, *r = q + 2;
-		else if (*p == '/') e.op = KEO_DIV, *r = q + 1;
-		else if (*p == '%') e.op = KEO_MOD, *r = q + 1;
-		else if (*p == '+') e.op = last_is_val? KEO_ADD : KEO_PLUS, *r = q + 1;
-		else if (*p == '-') e.op = last_is_val? KEO_SUB : KEO_MINUS, *r = q + 1;
-		else if (*p == '=' && p[1] == '=') e.op = KEO_EQ, *r = q + 2;
-		else if (*p == '!' && p[1] == '=') e.op = KEO_NE, *r = q + 2;
-		else if (*p == '>' && p[1] == '=') e.op = KEO_GE, *r = q + 2;
-		else if (*p == '<' && p[1] == '=') e.op = KEO_LE, *r = q + 2;
-		else if (*p == '>' && p[1] == '>') e.op = KEO_RSH, *r = q + 2;
-		else if (*p == '<' && p[1] == '<') e.op = KEO_LSH, *r = q + 2;
-		else if (*p == '>') e.op = KEO_GT, *r = q + 1;
-		else if (*p == '<') e.op = KEO_LT, *r = q + 1;
-		else if (*p == '|' && p[1] == '|') e.op = KEO_LOR, *r = q + 2;
-		else if (*p == '&' && p[1] == '&') e.op = KEO_LAND, *r = q + 2;
-		else if (*p == '|') e.op = KEO_BOR, *r = q + 1;
-		else if (*p == '&') e.op = KEO_BAND, *r = q + 1;
-		else if (*p == '^') e.op = KEO_BXOR, *r = q + 1;
-		else if (*p == '~') e.op = KEO_BNOT, *r = q + 1;
-		else if (*p == '!') e.op = KEO_LNOT, *r = q + 1;
+		if (*p == '*' && p[1] == '*') e.op = KEO_POW, e.f.of = ke_op_KEO_POW, e.n_args = 2, *r = q + 2;
+		else if (*p == '*') e.op = KEO_MUL, e.f.of = ke_op_KEO_MUL, e.n_args = 2, *r = q + 1; // FIXME: NOT working for unary operators
+		else if (*p == '/' && p[1] == '/') e.op = KEO_IDIV, e.f.of = ke_op_KEO_IDIV, e.n_args = 2, *r = q + 2;
+		else if (*p == '/') e.op = KEO_DIV, e.f.of = ke_op_KEO_DIV, e.n_args = 2, *r = q + 1;
+		else if (*p == '%') e.op = KEO_MOD, e.f.of = ke_op_KEO_MOD, e.n_args = 2, *r = q + 1;
+		else if (*p == '+') {
+			if (last_is_val) e.op = KEO_ADD, e.f.of = ke_op_KEO_ADD, e.n_args = 2;
+			else e.op = KEO_POS, e.f.of = ke_op_KEO_POS, e.n_args = 1;
+			*r = q + 1;
+		} else if (*p == '-') {
+			if (last_is_val) e.op = KEO_SUB, e.f.of = ke_op_KEO_SUB, e.n_args = 2;
+			else e.op = KEO_NEG, e.f.of = ke_op_KEO_NEG, e.n_args = 1;
+			*r = q + 1;
+		} else if (*p == '=' && p[1] == '=')e.op = KEO_EQ,e.f.of = ke_op_KEO_EQ, e.n_args = 2, *r = q + 2;
+		else if (*p == '!' && p[1] == '=') e.op = KEO_NE, e.f.of = ke_op_KEO_NE, e.n_args = 2, *r = q + 2;
+		else if (*p == '>' && p[1] == '=') e.op = KEO_GE, e.f.of = ke_op_KEO_GE, e.n_args = 2, *r = q + 2;
+		else if (*p == '<' && p[1] == '=') e.op = KEO_LE, e.f.of = ke_op_KEO_LE, e.n_args = 2, *r = q + 2;
+		else if (*p == '>' && p[1] == '>') e.op = KEO_RSH, e.f.of = ke_op_KEO_RSH, e.n_args = 2, *r = q + 2;
+		else if (*p == '<' && p[1] == '<') e.op = KEO_LSH, e.f.of = ke_op_KEO_LSH, e.n_args = 2, *r = q + 2;
+		else if (*p == '>') e.op = KEO_GT, e.f.of = ke_op_KEO_GT, e.n_args = 2, *r = q + 1;
+		else if (*p == '<') e.op = KEO_LT, e.f.of = ke_op_KEO_LT, e.n_args = 2, *r = q + 1;
+		else if (*p == '|' && p[1] == '|') e.op = KEO_LOR, e.f.of = ke_op_KEO_LOR, e.n_args = 2, *r = q + 2;
+		else if (*p == '&' && p[1] == '&') e.op = KEO_LAND, e.f.of = ke_op_KEO_LAND, e.n_args = 2, *r = q + 2;
+		else if (*p == '|') e.op = KEO_BOR, e.f.of = ke_op_KEO_BOR, e.n_args = 2, *r = q + 1;
+		else if (*p == '&') e.op = KEO_BAND, e.f.of = ke_op_KEO_BAND, e.n_args = 2, *r = q + 1;
+		else if (*p == '^') e.op = KEO_BXOR, e.f.of = ke_op_KEO_BXOR, e.n_args = 2, *r = q + 1;
+		else if (*p == '~') e.op = KEO_BNOT, e.f.of = ke_op_KEO_BNOT, e.n_args = 1, *r = q + 1;
+		else if (*p == '!') e.op = KEO_LNOT, e.f.of = ke_op_KEO_LNOT, e.n_args = 1, *r = q + 1;
 		else e.ttype = KET_NULL, *err |= KEE_UNTO;
 	}
 	return e;
@@ -269,23 +340,6 @@ kexpr_t *ke_parse(const char *_s, int *err)
 
 int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, int *int_ret)
 {
-#define _do_cmp(_op) do { \
-		q = &stack[--top], p = &stack[top-1]; \
-		if (p->vtype == KEV_STR && q->vtype == KEV_STR) p->i = (strcmp(p->s, q->s) _op 0); \
-		else p->i = p->vtype == KEV_REAL || q->vtype == KEV_REAL? (p->r _op q->r) : (p->i _op q->i); \
-		p->r = (double)p->i; \
-		p->vtype = KEV_INT; \
-	} while (0)
-#define _do_bin_both(_op) do { \
-		q = &stack[--top], p = &stack[top-1]; \
-		p->i _op q->i, p->r _op q->r; \
-		p->vtype = p->vtype == KEV_REAL || q->vtype == KEV_REAL? KEV_REAL : KEV_INT; \
-	} while (0)
-#define _do_bin_int(_op) do { \
-		q = &stack[--top], p = &stack[top-1]; \
-		p->i _op q->i; p->r = (double)p->i; \
-		p->vtype = KEV_INT; \
-	} while (0)
 #define _do_func1(_func) do { \
 		p = &stack[top-1]; \
 		p->r = _func(p->r); p->i = (int64_t)(p->r + .5); \
@@ -301,66 +355,13 @@ int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, int *int_ret)
 			stack[top++] = *e;
 		} else if (e->ttype == KET_OP) {
 			if (top == 0) break;
-			if (e->op == KEO_ADD) {
-				_do_bin_both(+=);
-			} else if (e->op == KEO_SUB) {
-				_do_bin_both(-=);
-			} else if (e->op == KEO_MUL) {
-				_do_bin_both(*=);
-			} else if (e->op == KEO_DIV) {
-				q = &stack[--top], p = &stack[top-1];
-				p->r /= q->r; p->i = (int64_t)(p->r + .5);
-				p->vtype = KEV_REAL;
-			} else if (e->op == KEO_MINUS) {
-				p = &stack[top-1];
-				p->i = -p->i, p->r = -p->r;
-			} else if (e->op == KEO_PLUS) {
-			} else if (e->op == KEO_LAND) {
-				q = &stack[--top], p = &stack[top-1];
-				p->i = (p->i && q->i); p->r = p->i;
-				p->vtype = KEV_INT;
-			} else if (e->op == KEO_LOR) {
-				q = &stack[--top], p = &stack[top-1];
-				p->i = (p->i || q->i); p->r = p->i;
-				p->vtype = KEV_INT;
-			} else if (e->op == KEO_POW) {
-				q = &stack[--top], p = &stack[top-1];
-				p->r = pow(p->r, q->r), p->i = (int64_t)(p->r + .5);
-				p->vtype = p->vtype == KEV_REAL || q->vtype == KEV_REAL? KEV_REAL : KEV_INT;
-			} else if (e->op == KEO_LT) {
-				_do_cmp(<);
-			} else if (e->op == KEO_LE) {
-				_do_cmp(<=);
-			} else if (e->op == KEO_GT) {
-				_do_cmp(>);
-			} else if (e->op == KEO_GE) {
-				_do_cmp(>=);
-			} else if (e->op == KEO_EQ) {
-				_do_cmp(==);
-			} else if (e->op == KEO_NE) {
-				_do_cmp(!=);
-			} else if (e->op == KEO_BAND) {
-				_do_bin_int(&=);
-			} else if (e->op == KEO_BOR) {
-				_do_bin_int(|=);
-			} else if (e->op == KEO_BXOR) {
-				_do_bin_int(^=);
-			} else if (e->op == KEO_LSH) {
-				_do_bin_int(<<=);
-			} else if (e->op == KEO_RSH) {
-				_do_bin_int(>>=);
-			} else if (e->op == KEO_MOD) {
-				_do_bin_int(%=);
-			} else if (e->op == KEO_IDIV) {
-				_do_bin_int(/=);
-			} else if (e->op == KEO_BNOT) {
-				p = &stack[top-1];
-				p->i = ~p->i; p->r = (double)p->i;
-				p->vtype = KEV_INT;
-			} else if (e->op == KEO_LNOT) {
-				p = &stack[top-1];
-				p->i = !p->i; p->r = (double)p->i;
-				p->vtype = KEV_INT;
+			if (e->f.of) {
+				if (e->n_args == 2) {
+					q = &stack[--top], p = &stack[top-1];
+					e->f.of(p, q);
+				} else if (e->n_args == 1) {
+					e->f.of(&stack[top-1], 0);
+				}
 			}
 		} else if (e->ttype == KET_FUNC) {
 			if (e->n_args == 1) {
@@ -386,10 +387,6 @@ int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, int *int_ret)
 	free(stack);
 	*_i = stack->i, *_r = stack->r, *int_ret = (stack->vtype == KEV_INT);
 	return err;
-
-#undef _do_bin_int
-#undef _do_bin_both
-#undef _do_cmp
 }
 
 void ke_destroy(kexpr_t *ke)
