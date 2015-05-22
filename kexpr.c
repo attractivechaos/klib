@@ -160,6 +160,14 @@ static void ke_func1_abs(ke1_t *p, ke1_t *q) { if (p->vtype == KEV_INT) p->i = a
  * Parser *
  **********/
 
+static inline char *mystrndup(const char *src, int n)
+{
+	char *dst;
+	dst = (char*)calloc(n + 1, 1);
+	strncpy(dst, src, n);
+	return dst;
+}
+
 // parse a token except "(", ")" and ","
 static ke1_t ke_read_token(char *p, char **r, int *err, int last_is_val) // it doesn't parse parentheses
 {
@@ -170,7 +178,7 @@ static ke1_t ke_read_token(char *p, char **r, int *err, int last_is_val) // it d
 		for (; *p && (*p == '_' || isalnum(*p)); ++p);
 		if (*p == '(') e.ttype = KET_FUNC, e.n_args = 1;
 		else e.ttype = KET_VAL, e.vtype = KEV_REAL;
-		e.name = strndup(q, p - q);
+		e.name = mystrndup(q, p - q);
 		e.i = 0, e.r = 0.;
 		*r = p;
 	} else if (isdigit(*p)) { // a number
@@ -195,7 +203,7 @@ static ke1_t ke_read_token(char *p, char **r, int *err, int last_is_val) // it d
 			if (*p == '\\') ++p; // escaping
 		if (*p == c) {
 			e.ttype = KET_VAL, e.vtype = KEV_STR;
-			e.s = strndup(q + 1, p - q - 1);
+			e.s = mystrndup(q + 1, p - q - 1);
 			*r = p + 1;
 		} else *err |= KEE_UNQU, *r = p;
 	} else { // an operator
@@ -401,14 +409,14 @@ void ke_destroy(kexpr_t *ke)
 	free(ke->e); free(ke);
 }
 
-int ke_set_int(kexpr_t *ke, const char *var, int64_t x)
+int ke_set_int(kexpr_t *ke, const char *var, int64_t y)
 {
 	int i, n = 0;
-	double xx = (double)x;
+	double yy = (double)y;
 	for (i = 0; i < ke->n; ++i) {
 		ke1_t *e = &ke->e[i];
 		if (e->ttype == KET_VAL && e->name && strcmp(e->name, var) == 0)
-			e->i = x, e->r = xx, e->ttype = KEV_INT, e->assigned = 1, ++n;
+			e->i = y, e->r = yy, e->vtype = KEV_INT, e->assigned = 1, ++n;
 	}
 	return n;
 }
@@ -420,7 +428,7 @@ int ke_set_real(kexpr_t *ke, const char *var, double x)
 	for (i = 0; i < ke->n; ++i) {
 		ke1_t *e = &ke->e[i];
 		if (e->ttype == KET_VAL && e->name && strcmp(e->name, var) == 0)
-			e->r = x, e->i = xx, e->ttype = KEV_REAL, e->assigned = 1, ++n;
+			e->r = x, e->i = xx, e->vtype = KEV_REAL, e->assigned = 1, ++n;
 	}
 	return n;
 }
@@ -467,9 +475,7 @@ int ke_set_default_func(kexpr_t *ke)
 {
 	int n = 0;
 	n += ke_set_real_func1(ke, "exp", exp);
-	n += ke_set_real_func1(ke, "exp2", exp2);
 	n += ke_set_real_func1(ke, "log", log);
-	n += ke_set_real_func1(ke, "log2", log2);
 	n += ke_set_real_func1(ke, "log10", log10);
 	n += ke_set_real_func1(ke, "sqrt", sqrt);
 	n += ke_set_real_func1(ke, "sin", sin);
