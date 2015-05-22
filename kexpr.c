@@ -49,10 +49,10 @@
 struct ke1_s;
 
 typedef struct ke1_s {
-	uint32_t ttype:16, vtype:16;
-	int32_t op:8, n_args:24;
-	char *name;
-	void (*func)(struct ke1_s *a, struct ke1_s *b);
+	uint32_t ttype:16, vtype:16; // ttype: token type; vtype: value type
+	int32_t op:8, n_args:23, assigned:1; // op: operator, n_args: number of arguments, assigned: if a variable is assigned
+	char *name; // variable name or function name
+	void (*func)(struct ke1_s *a, struct ke1_s *b); // execution function
 	double r;
 	int64_t i;
 	char *s;
@@ -380,13 +380,10 @@ int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, int *int_ret)
 	*_i = 0, *_r = 0., *int_ret = 0;
 	for (i = 0; i < ke->n; ++i) {
 		ke1_t *e = &ke->e[i];
-		if ((e->ttype == KET_OP || e->ttype == KET_FUNC) && e->func == 0)
-			break;
+		if ((e->ttype == KET_OP || e->ttype == KET_FUNC) && e->func == 0) err |= KEE_UNFUNC;
+		else if (e->ttype == KET_VAL && e->name && e->assigned == 0) err |= KEE_UNVAR;
 	}
-	if (i < ke->n) {
-		err |= KEE_UNFUNC;
-		return err;
-	}
+	if (err & KEE_UNFUNC) return err;
 	stack = (ke1_t*)malloc(ke->n * sizeof(ke1_t));
 	for (i = 0; i < ke->n; ++i) {
 		ke1_t *e = &ke->e[i];
@@ -399,8 +396,8 @@ int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, int *int_ret)
 			} else abort(); // TODO: so far, no functions have three or more arguments; may happen in future
 		} else stack[top++] = *e;
 	}
-	free(stack);
 	*_i = stack->i, *_r = stack->r, *int_ret = (stack->vtype == KEV_INT);
+	free(stack);
 	return err;
 }
 
@@ -422,7 +419,7 @@ int ke_set_int(kexpr_t *ke, const char *var, int64_t x)
 	for (i = 0; i < ke->n; ++i) {
 		ke1_t *e = &ke->e[i];
 		if (e->ttype == KET_VAL && e->name && strcmp(e->name, var) == 0)
-			e->i = x, e->r = xx, e->ttype = KEV_INT, ++n;
+			e->i = x, e->r = xx, e->ttype = KEV_INT, e->assigned = 1, ++n;
 	}
 	return n;
 }
@@ -434,7 +431,7 @@ int ke_set_real(kexpr_t *ke, const char *var, double x)
 	for (i = 0; i < ke->n; ++i) {
 		ke1_t *e = &ke->e[i];
 		if (e->ttype == KET_VAL && e->name && strcmp(e->name, var) == 0)
-			e->r = x, e->i = xx, e->ttype = KEV_REAL, ++n;
+			e->r = x, e->i = xx, e->ttype = KEV_REAL, e->assigned = 1, ++n;
 	}
 	return n;
 }
@@ -447,11 +444,21 @@ int ke_set_str(kexpr_t *ke, const char *var, const char *x)
 		if (e->ttype == KET_VAL && e->name && strcmp(e->name, var) == 0) {
 			if (e->vtype == KEV_STR) free(e->s);
 			e->s = strdup(x);
-			e->i = 0, e->r = 0.;
+			e->i = 0, e->r = 0., e->assigned = 1;
 			e->vtype = KEV_STR;
+			++n;
 		}
 	}
 	return n;
+}
+
+void ke_unset(kexpr_t *ke)
+{
+	int i;
+	for (i = 0; i < ke->n; ++i) {
+		ke1_t *e = &ke->e[i];
+		if (e->ttype == KET_VAL && e->name) e->assigned = 0;
+	}
 }
 
 void ke_print(const kexpr_t *ke)
@@ -511,10 +518,11 @@ int main(int argc, char *argv[])
 			}
 		}
 		err |= ke_eval(ke, &vi, &vr, &int_ret);
-		if (err) {
+		if (err & KEE_UNFUNC) {
 			fprintf(stderr, "Evaluation error: 0x%x\n", err);
 			return 1;
 		}
+		if (err & KEE_UNVAR) fprintf(stderr, "Evaluation warning: unassigned variables are set to 0.\n");
 		if (is_int) printf("%lld\n", (long long)vi);
 		else printf("%g\n", vr);
 	} else ke_print(ke);

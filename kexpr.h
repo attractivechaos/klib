@@ -27,6 +27,7 @@ int ke_set_int(kexpr_t *ke, const char *var, int64_t x);
 int ke_set_real(kexpr_t *ke, const char *var, double x);
 int ke_set_str(kexpr_t *ke, const char *var, const char *x);
 int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, int *int_ret);
+void ke_unset(kexpr_t *e);
 
 #ifdef __cplusplus
 }
