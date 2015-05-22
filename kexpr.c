@@ -486,7 +486,16 @@ int main(int argc, char *argv[])
 	if (!to_print) {
 		int64_t vi;
 		double vr;
-		int int_ret;
+		int i, int_ret;
+		if (argc - optind > 1) {
+			for (i = optind + 1; i < argc; ++i) {
+				char *p, *s = argv[i];
+				for (p = s; *p && *p != '='; ++p);
+				if (*p == 0) continue; // not an assignment
+				*p = 0;
+				ke_set_real(ke, s, strtod(p+1, &p));
+			}
+		}
 		err = ke_eval(ke, &vi, &vr, &int_ret);
 		if (err) {
 			fprintf(stderr, "ERROR: 0x%x\n", err);
