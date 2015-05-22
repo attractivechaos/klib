@@ -193,6 +193,10 @@ static ke1_t *ke_parse_core(const char *_s, int *_n, int *err)
 				*err |= KEE_UNRP;
 				break;
 			} else --n_op; // pop out '('
+			if (n_op > 0 && op[n_op-1].ttype == KET_FUNC) {
+				u = push_back(&out, &n_out, &m_out);
+				*u = op[--n_op];
+			}
 			++p;
 		} else if (*p == ',') {
 			while (n_op > 0 && op[n_op-1].op >= 0) {
