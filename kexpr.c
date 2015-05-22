@@ -366,18 +366,17 @@ int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, int *int_ret)
 		if ((e->ttype == KET_OP || e->ttype == KET_FUNC) && e->f.builtin == 0) err |= KEE_UNFUNC;
 		else if (e->ttype == KET_VAL && e->name && e->assigned == 0) err |= KEE_UNVAR;
 	}
-	if (err & KEE_UNFUNC) return err;
 	stack = (ke1_t*)malloc(ke->n * sizeof(ke1_t));
 	for (i = 0; i < ke->n; ++i) {
 		ke1_t *e = &ke->e[i];
 		if (e->ttype == KET_OP || e->ttype == KET_FUNC) {
-			if (e->n_args == 2) {
+			if (e->n_args == 2 && e->f.builtin) {
 				q = &stack[--top], p = &stack[top-1];
 				if (e->user_func) {
 					if (e->user_func == KEF_REAL)
 						p->r = e->f.real_func2(p->r, q->r), p->i = (int64_t)(p->r + .5), p->vtype = KEV_REAL;
 				} else e->f.builtin(p, q);
-			} else if (e->n_args == 1) {
+			} else if (e->n_args == 1 && e->f.builtin) {
 				p = &stack[top-1];
 				if (e->user_func) {
 					if (e->user_func == KEF_REAL)
@@ -476,6 +475,7 @@ int ke_set_default_func(kexpr_t *ke)
 	n += ke_set_real_func1(ke, "sin", sin);
 	n += ke_set_real_func1(ke, "cos", cos);
 	n += ke_set_real_func1(ke, "tan", tan);
+	n += ke_set_real_func2(ke, "pow", pow);
 	return n;
 }
 
@@ -546,10 +546,8 @@ int main(int argc, char *argv[])
 			}
 		}
 		err |= ke_eval(ke, &vi, &vr, &int_ret);
-		if (err & KEE_UNFUNC) {
-			fprintf(stderr, "Evaluation error: 0x%x\n", err);
-			return 1;
-		}
+		if (err & KEE_UNFUNC)
+			fprintf(stderr, "Evaluation warning: an undefined function returns the first function argument.\n");
 		if (err & KEE_UNVAR) fprintf(stderr, "Evaluation warning: unassigned variables are set to 0.\n");
 		if (is_int) printf("%lld\n", (long long)vi);
 		else printf("%g\n", vr);
