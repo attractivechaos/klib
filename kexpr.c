@@ -291,13 +291,8 @@ static ke1_t *ke_parse_core(const char *_s, int *_n, int *err)
 					else if (strcmp(u->name, "exp2") == 0) u->func = ke_func1_exp2;
 					else if (strcmp(u->name, "log10") == 0) u->func = ke_func1_log10;
 					else if (strcmp(u->name, "sqrt") == 0) u->func = ke_func1_sqrt;
-					else { *err |= KEE_UNFUNC; break; }
 				} else if (u->n_args == 2) {
 					if (strcmp(u->name, "pow") == 0) u->func = ke_func1_pow; // for now, this to test functions with multiple arguments
-					else { *err |= KEE_UNFUNC; break; }
-				} else {
-					*err |= KEE_UNFUNC;
-					break;
 				}
 			}
 			++p;
@@ -378,10 +373,20 @@ kexpr_t *ke_parse(const char *_s, int *err)
 	return ke;
 }
 
-void ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, int *int_ret)
+int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, int *int_ret)
 {
 	ke1_t *stack, *p, *q;
-	int i, top = 0;
+	int i, top = 0, err = 0;
+	*_i = 0, *_r = 0., *int_ret = 0;
+	for (i = 0; i < ke->n; ++i) {
+		ke1_t *e = &ke->e[i];
+		if ((e->ttype == KET_OP || e->ttype == KET_FUNC) && e->func == 0)
+			break;
+	}
+	if (i < ke->n) {
+		err |= KEE_UNFUNC;
+		return err;
+	}
 	stack = (ke1_t*)malloc(ke->n * sizeof(ke1_t));
 	for (i = 0; i < ke->n; ++i) {
 		ke1_t *e = &ke->e[i];
@@ -396,6 +401,7 @@ void ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, int *int_ret)
 	}
 	free(stack);
 	*_i = stack->i, *_r = stack->r, *int_ret = (stack->vtype == KEV_INT);
+	return err;
 }
 
 void ke_destroy(kexpr_t *ke)
@@ -488,7 +494,7 @@ int main(int argc, char *argv[])
 	}
 	ke = ke_parse(argv[optind], &err);
 	if (err) {
-		fprintf(stderr, "ERROR: 0x%x\n", err);
+		fprintf(stderr, "Parse error: 0x%x\n", err);
 		return 1;
 	}
 	if (!to_print) {
@@ -504,7 +510,11 @@ int main(int argc, char *argv[])
 				ke_set_real(ke, s, strtod(p+1, &p));
 			}
 		}
-		ke_eval(ke, &vi, &vr, &int_ret);
+		err |= ke_eval(ke, &vi, &vr, &int_ret);
+		if (err) {
+			fprintf(stderr, "Evaluation error: 0x%x\n", err);
+			return 1;
+		}
 		if (is_int) printf("%lld\n", (long long)vi);
 		else printf("%g\n", vr);
 	} else ke_print(ke);
