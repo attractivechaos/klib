@@ -40,7 +40,6 @@
 #define KEV_REAL  1
 #define KEV_INT   2
 #define KEV_STR   3
-#define KEV_VAR   4
 
 typedef struct {
 	uint32_t ttype:16, vtype:16;
@@ -96,7 +95,7 @@ static ke1_t ke_read_token(char *p, char **r, int *err, int last_is_val) // it d
 	if (isalpha(*p) || *p == '_') { // a variable or a function
 		for (; *p && (*p == '_' || isalnum(*p)); ++p);
 		if (*p == '(') e.ttype = KET_FUNC, e.n_args = 1;
-		else e.ttype = KET_VAL, e.vtype = KEV_VAR;
+		else e.ttype = KET_VAL, e.vtype = KEV_REAL;
 		e.name = strndup(q, p - q);
 		e.i = 0, e.r = 0.;
 		*r = p;
@@ -395,6 +394,45 @@ void ke_destroy(kexpr_t *ke)
 	free(ke->e); free(ke);
 }
 
+int ke_set_int(kexpr_t *ke, const char *var, int64_t x)
+{
+	int i, n = 0;
+	double xx = (double)x;
+	for (i = 0; i < ke->n; ++i) {
+		ke1_t *e = &ke->e[i];
+		if (e->ttype == KET_VAL && e->name && strcmp(e->name, var) == 0)
+			e->i = x, e->r = xx, e->ttype = KEV_INT, ++n;
+	}
+	return n;
+}
+
+int ke_set_real(kexpr_t *ke, const char *var, double x)
+{
+	int i, n = 0;
+	int64_t xx = (int64_t)(x + .5);
+	for (i = 0; i < ke->n; ++i) {
+		ke1_t *e = &ke->e[i];
+		if (e->ttype == KET_VAL && e->name && strcmp(e->name, var) == 0)
+			e->r = x, e->i = xx, e->ttype = KEV_REAL, ++n;
+	}
+	return n;
+}
+
+int ke_set_str(kexpr_t *ke, const char *var, const char *x)
+{
+	int i, n = 0;
+	for (i = 0; i < ke->n; ++i) {
+		ke1_t *e = &ke->e[i];
+		if (e->ttype == KET_VAL && e->name && strcmp(e->name, var) == 0) {
+			if (e->vtype == KEV_STR) free(e->s);
+			e->s = strdup(x);
+			e->i = 0, e->r = 0.;
+			e->vtype = KEV_STR;
+		}
+	}
+	return n;
+}
+
 void ke_print(const kexpr_t *ke)
 {
 	int i;
@@ -403,10 +441,10 @@ void ke_print(const kexpr_t *ke)
 		const ke1_t *u = &ke->e[i];
 		if (i) putchar(' ');
 		if (u->ttype == KET_VAL) {
-			if (u->vtype == KEV_REAL) printf("%g", u->r);
+			if (u->name) printf("%s", u->name);
+			else if (u->vtype == KEV_REAL) printf("%g", u->r);
 			else if (u->vtype == KEV_INT) printf("%lld", (long long)u->i);
 			else if (u->vtype == KEV_STR) printf("\"%s\"", u->s);
-			else if (u->vtype == KEV_VAR) printf("%s", u->name);
 		} else if (u->ttype == KET_OP) {
 			printf("%s", ke_opstr[u->op]);
 		} else if (u->ttype == KET_FUNC) {
