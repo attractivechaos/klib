@@ -115,9 +115,11 @@ static ke1_t ke_read_token(char *p, char **r, int *err, int last_is_val) // it d
 			e.i = x, e.r = x;
 			*r = pp;
 		}
-	} else if (*p == '"') { // a string value
-		for (++p; *p && *p != '"'; ++p); // TODO: support escaping
-		if (*p == '"') {
+	} else if (*p == '"' || *p == '\'') { // a string value
+		int c = *p;
+		for (++p; *p && *p != c; ++p)
+			if (*p == '\\') ++p; // escaping
+		if (*p == c) {
 			e.ttype = KET_VAL;
 			e.vtype = KEV_STR;
 			e.s = strndup(q + 1, p - q - 1);
