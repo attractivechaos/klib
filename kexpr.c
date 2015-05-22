@@ -265,7 +265,7 @@ kexpr_t *ke_parse(const char *_s, int *err)
 	return ke;
 }
 
-int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r)
+int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, int *int_ret)
 {
 #define _do_cmp(_op) do { \
 		q = &stack[--top], p = &stack[top-1]; \
@@ -375,7 +375,7 @@ int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r)
 	}
 	if (top != 1) err |= KEE_ARG;
 	free(stack);
-	*_i = stack->i, *_r = stack->r;
+	*_i = stack->i, *_r = stack->r, *int_ret = (stack->vtype == KEV_INT);
 	return err;
 
 #undef _do_bin_int
@@ -479,7 +479,8 @@ int main(int argc, char *argv[])
 	if (!to_print) {
 		int64_t vi;
 		double vr;
-		err = ke_eval(ke, &vi, &vr);
+		int int_ret;
+		err = ke_eval(ke, &vi, &vr, &int_ret);
 		if (err) {
 			fprintf(stderr, "ERROR: 0x%x\n", err);
 			return 1;
