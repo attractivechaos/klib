@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <math.h>
 #include "kexpr.h"
 
 #define KEO_NULL  0
@@ -44,7 +45,7 @@
 typedef struct {
 	uint32_t ttype:16, vtype:16;
 	int32_t op:8, n_args:24;
-	char *name;
+	char *name, *s;
 	double r;
 	int64_t i;
 } ke1_t;
@@ -76,7 +77,7 @@ static ke1_t ke_read_token(char *p, char **r, int *err, int last_is_val) // it d
 	char *q = p;
 	ke1_t e;
 	memset(&e, 0, sizeof(ke1_t));
-	if (isalpha(*p)) { // a variable or a function
+	if (isalpha(*p) || *p == '_') { // a variable or a function
 		for (; *p && (*p == '_' || isalnum(*p)); ++p);
 		if (*p == '(') e.ttype = KET_FUNC, e.n_args = 1;
 		else e.ttype = KET_VAL, e.vtype = KEV_VAR;
@@ -104,7 +105,7 @@ static ke1_t ke_read_token(char *p, char **r, int *err, int last_is_val) // it d
 		if (*p == '"') {
 			e.ttype = KET_VAL;
 			e.vtype = KEV_STR;
-			e.name = strndup(q + 1, p - q - 1);
+			e.s = strndup(q + 1, p - q - 1);
 			*r = p + 1;
 		} else *err |= KEE_UNDQ, *r = p;
 	} else {
@@ -120,6 +121,8 @@ static ke1_t ke_read_token(char *p, char **r, int *err, int last_is_val) // it d
 		else if (*p == '!' && p[1] == '=') e.op = KEO_NE, *r = q + 2;
 		else if (*p == '>' && p[1] == '=') e.op = KEO_GE, *r = q + 2;
 		else if (*p == '<' && p[1] == '=') e.op = KEO_LE, *r = q + 2;
+		else if (*p == '>' && p[1] == '>') e.op = KEO_RSH, *r = q + 2;
+		else if (*p == '<' && p[1] == '<') e.op = KEO_LSH, *r = q + 2;
 		else if (*p == '>') e.op = KEO_GT, *r = q + 1;
 		else if (*p == '<') e.op = KEO_LT, *r = q + 1;
 		else if (*p == '|' && p[1] == '|') e.op = KEO_LOR, *r = q + 2;
@@ -243,11 +246,116 @@ kexpr_t *ke_parse(const char *_s, int *err)
 	return ke;
 }
 
+int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r)
+{
+#define _do_cmp(_op) do { \
+		q = &stack[--top], p = &stack[top-1]; \
+		if (p->vtype == KEV_STR && q->vtype == KEV_STR) p->i = (strcmp(p->s, q->s) _op 0); \
+		else p->i = p->vtype == KEV_REAL || q->vtype == KEV_REAL? (p->r _op q->r) : (p->i _op q->i); \
+		p->r = (double)p->i; \
+		p->vtype = KEV_INT; \
+	} while (0)
+#define _do_bin_both(_op) do { \
+		q = &stack[--top], p = &stack[top-1]; \
+		p->i _op q->i, p->r _op q->r; \
+		p->vtype = p->vtype == KEV_REAL || q->vtype == KEV_REAL? KEV_REAL : KEV_INT; \
+	} while (0)
+#define _do_bin_int(_op) do { \
+		q = &stack[--top], p = &stack[top-1]; \
+		p->i _op q->i; p->r = (double)p->i; \
+		p->vtype = KEV_INT; \
+	} while (0)
+
+	ke1_t *stack, *p, *q;
+	int i, top = 0, err = 0;
+	stack = (ke1_t*)malloc(ke->n * sizeof(ke1_t));
+	for (i = 0; i < ke->n; ++i) {
+		ke1_t *e = &ke->e[i];
+		if (e->ttype == KET_VAL) {
+			stack[top++] = *e;
+		} else if (e->ttype == KET_OP) {
+			if (top == 0) break;
+			if (e->op == KEO_ADD) {
+				_do_bin_both(+=);
+			} else if (e->op == KEO_SUB) {
+				_do_bin_both(-=);
+			} else if (e->op == KEO_MUL) {
+				_do_bin_both(*=);
+			} else if (e->op == KEO_DIV) {
+				q = &stack[--top], p = &stack[top-1];
+				p->r /= q->r; p->i = (int64_t)(p->r + .5);
+				p->vtype = KEV_REAL;
+			} else if (e->op == KEO_MINUS) {
+				p = &stack[top-1];
+				p->i = -p->i, p->r = -p->r;
+			} else if (e->op == KEO_PLUS) {
+			} else if (e->op == KEO_LAND) {
+				q = &stack[--top], p = &stack[top-1];
+				p->i = (p->i && q->i); p->r = p->i;
+				p->vtype = KEV_INT;
+			} else if (e->op == KEO_LOR) {
+				q = &stack[--top], p = &stack[top-1];
+				p->i = (p->i || q->i); p->r = p->i;
+				p->vtype = KEV_INT;
+			} else if (e->op == KEO_POW) {
+				q = &stack[--top], p = &stack[top-1];
+				p->r = pow(p->r, q->r), p->i = (int64_t)(p->r + .5);
+				p->vtype = p->vtype == KEV_REAL || q->vtype == KEV_REAL? KEV_REAL : KEV_INT;
+			} else if (e->op == KEO_LT) {
+				_do_cmp(<);
+			} else if (e->op == KEO_LE) {
+				_do_cmp(<=);
+			} else if (e->op == KEO_GT) {
+				_do_cmp(>);
+			} else if (e->op == KEO_GE) {
+				_do_cmp(>=);
+			} else if (e->op == KEO_EQ) {
+				_do_cmp(==);
+			} else if (e->op == KEO_NE) {
+				_do_cmp(!=);
+			} else if (e->op == KEO_BAND) {
+				_do_bin_int(&=);
+			} else if (e->op == KEO_BOR) {
+				_do_bin_int(|=);
+			} else if (e->op == KEO_BXOR) {
+				_do_bin_int(^=);
+			} else if (e->op == KEO_LSH) {
+				_do_bin_int(<<=);
+			} else if (e->op == KEO_RSH) {
+				_do_bin_int(>>=);
+			} else if (e->op == KEO_MOD) {
+				_do_bin_int(%=);
+			} else if (e->op == KEO_IDIV) {
+				_do_bin_int(/=);
+			} else if (e->op == KEO_BNOT) {
+				p = &stack[top-1];
+				p->i = ~p->i; p->r = (double)p->i;
+				p->vtype = KEV_INT;
+			} else if (e->op == KEO_LNOT) {
+				p = &stack[top-1];
+				p->i = !p->i; p->r = (double)p->i;
+				p->vtype = KEV_INT;
+			}
+		}
+	}
+	if (top != 1) err |= KEE_ARG;
+	free(stack);
+	*_i = stack->i, *_r = stack->r;
+	return err;
+
+#undef _do_bin_int
+#undef _do_bin_both
+#undef _do_cmp
+}
+
 void ke_destroy(kexpr_t *ke)
 {
 	int i;
 	if (ke == 0) return;
-	for (i = 0; i < ke->n; ++i) free(ke->e[i].name);
+	for (i = 0; i < ke->n; ++i) {
+		free(ke->e[i].name);
+		free(ke->e[i].s);
+	}
 	free(ke->e); free(ke);
 }
 
@@ -278,7 +386,7 @@ void ke_print(const kexpr_t *ke)
 		if (u->ttype == KET_VAL) {
 			if (u->vtype == KEV_REAL) printf("%g", u->r);
 			else if (u->vtype == KEV_INT) printf("%lld", (long long)u->i);
-			else if (u->vtype == KEV_STR) printf("\"%s\"", u->name);
+			else if (u->vtype == KEV_STR) printf("\"%s\"", u->s);
 			else if (u->vtype == KEV_VAR) printf("%s", u->name);
 		} else if (u->ttype == KET_OP) {
 			printf("%s", ke_opstr[u->op]);
@@ -293,12 +401,35 @@ void ke_print(const kexpr_t *ke)
 #ifdef KE_MAIN
 #include <unistd.h>
 
-int main()
+int main(int argc, char *argv[])
 {
-	int err;
+	int c, err, to_print = 0, is_int = 0;
 	kexpr_t *ke;
-	ke = ke_parse("6**2**2-3", &err);
-	ke_print(ke);
+
+	while ((c = getopt(argc, argv, "pi")) >= 0) {
+		if (c == 'p') to_print = 1;
+		else if (c == 'i') is_int = 1;
+	}
+	if (optind == argc) {
+		fprintf(stderr, "Usage: %s [-pi] <expr>\n", argv[0]);
+		return 1;
+	}
+	ke = ke_parse(argv[optind], &err);
+	if (err) {
+		fprintf(stderr, "ERROR: 0x%x\n", err);
+		return 1;
+	}
+	if (!to_print) {
+		int64_t vi;
+		double vr;
+		err = ke_eval(ke, &vi, &vr);
+		if (err) {
+			fprintf(stderr, "ERROR: 0x%x\n", err);
+			return 1;
+		}
+		if (is_int) printf("%lld\n", (long long)vi);
+		else printf("%g\n", vr);
+	} else ke_print(ke);
 	ke_destroy(ke);
 	return 0;
 }
