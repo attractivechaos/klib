@@ -52,10 +52,7 @@ typedef struct ke1_s {
 	uint32_t ttype:16, vtype:16;
 	int32_t op:8, n_args:24;
 	char *name;
-	union {
-		void (*of)(struct ke1_s *a, struct ke1_s *b);
-		double (*ff1)(double); // not used for now
-	} f;
+	void (*func)(struct ke1_s *a, struct ke1_s *b);
 	double r;
 	int64_t i;
 	char *s;
@@ -63,18 +60,18 @@ typedef struct ke1_s {
 
 static int ke_op[25] = {
 	0,
-	1<<1|1, 1<<1|1, 1<<1|1, 1<<1|1,
-	2<<1|1,
-	3<<1, 3<<1, 3<<1, 3<<1,
-	4<<1, 4<<1,
-	5<<1, 5<<1,
-	6<<1, 6<<1, 6<<1, 6<<1,
-	7<<1, 7<<1,
-	8<<1,
-	9<<1,
-	10<<1,
-	11<<1,
-	12<<1
+	1<<1|1, 1<<1|1, 1<<1|1, 1<<1|1, // unary operators
+	2<<1|1, // pow()
+	3<<1, 3<<1, 3<<1, 3<<1, // * / // %
+	4<<1, 4<<1, // + and -
+	5<<1, 5<<1, // << and >>
+	6<<1, 6<<1, 6<<1, 6<<1, // < > <= >=
+	7<<1, 7<<1, // == !=
+	8<<1, // &
+	9<<1, // ^
+	10<<1,// |
+	11<<1,// &&
+	12<<1 // ||
 };
 
 static char *ke_opstr[] = {
@@ -164,11 +161,13 @@ KE_GEN_FUNC1(exp2)
 KE_GEN_FUNC1(sqrt)
 
 static void ke_func1_abs(ke1_t *p, ke1_t *q) { if (p->vtype == KEV_INT) p->i = abs(p->i), p->r = (double)p->i; else p->r = fabs(p->r), p->i = (int64_t)(p->r + .5); }
+static void ke_func1_pow(ke1_t *p, ke1_t *q) { ke_op_KEO_POW(p, q); }
 
 /**********
  * Parser *
  **********/
 
+// parse a token except "(", ")" and ","
 static ke1_t ke_read_token(char *p, char **r, int *err, int last_is_val) // it doesn't parse parentheses
 {
 	char *q = p;
@@ -187,14 +186,14 @@ static ke1_t ke_read_token(char *p, char **r, int *err, int last_is_val) // it d
 		char *pp;
 		e.ttype = KET_VAL;
 		y = strtod(q, &p);
-		x = strtol(q, &pp, 0);
-		if (p > pp) {
+		x = strtol(q, &pp, 0); // FIXME: check int/double parsing errors
+		if (p > pp) { // has "." or "[eE]"; then it is a real number
 			e.vtype = KEV_REAL;
 			e.i = (int64_t)(y + .5), e.r = y;
 			*r = p;
 		} else {
 			e.vtype = KEV_INT;
-			e.i = x, e.r = x;
+			e.i = x, e.r = y;
 			*r = pp;
 		}
 	} else if (*p == '"' || *p == '\'') { // a string value
@@ -202,42 +201,41 @@ static ke1_t ke_read_token(char *p, char **r, int *err, int last_is_val) // it d
 		for (++p; *p && *p != c; ++p)
 			if (*p == '\\') ++p; // escaping
 		if (*p == c) {
-			e.ttype = KET_VAL;
-			e.vtype = KEV_STR;
+			e.ttype = KET_VAL, e.vtype = KEV_STR;
 			e.s = strndup(q + 1, p - q - 1);
 			*r = p + 1;
-		} else *err |= KEE_UNDQ, *r = p;
-	} else {
+		} else *err |= KEE_UNQU, *r = p;
+	} else { // an operator
 		e.ttype = KET_OP;
-		if (*p == '*' && p[1] == '*') e.op = KEO_POW, e.f.of = ke_op_KEO_POW, e.n_args = 2, *r = q + 2;
-		else if (*p == '*') e.op = KEO_MUL, e.f.of = ke_op_KEO_MUL, e.n_args = 2, *r = q + 1; // FIXME: NOT working for unary operators
-		else if (*p == '/' && p[1] == '/') e.op = KEO_IDIV, e.f.of = ke_op_KEO_IDIV, e.n_args = 2, *r = q + 2;
-		else if (*p == '/') e.op = KEO_DIV, e.f.of = ke_op_KEO_DIV, e.n_args = 2, *r = q + 1;
-		else if (*p == '%') e.op = KEO_MOD, e.f.of = ke_op_KEO_MOD, e.n_args = 2, *r = q + 1;
+		if (*p == '*' && p[1] == '*') e.op = KEO_POW, e.func = ke_op_KEO_POW, e.n_args = 2, *r = q + 2;
+		else if (*p == '*') e.op = KEO_MUL, e.func = ke_op_KEO_MUL, e.n_args = 2, *r = q + 1; // FIXME: NOT working for unary operators
+		else if (*p == '/' && p[1] == '/') e.op = KEO_IDIV, e.func = ke_op_KEO_IDIV, e.n_args = 2, *r = q + 2;
+		else if (*p == '/') e.op = KEO_DIV, e.func = ke_op_KEO_DIV, e.n_args = 2, *r = q + 1;
+		else if (*p == '%') e.op = KEO_MOD, e.func = ke_op_KEO_MOD, e.n_args = 2, *r = q + 1;
 		else if (*p == '+') {
-			if (last_is_val) e.op = KEO_ADD, e.f.of = ke_op_KEO_ADD, e.n_args = 2;
-			else e.op = KEO_POS, e.f.of = ke_op_KEO_POS, e.n_args = 1;
+			if (last_is_val) e.op = KEO_ADD, e.func = ke_op_KEO_ADD, e.n_args = 2;
+			else e.op = KEO_POS, e.func = ke_op_KEO_POS, e.n_args = 1;
 			*r = q + 1;
 		} else if (*p == '-') {
-			if (last_is_val) e.op = KEO_SUB, e.f.of = ke_op_KEO_SUB, e.n_args = 2;
-			else e.op = KEO_NEG, e.f.of = ke_op_KEO_NEG, e.n_args = 1;
+			if (last_is_val) e.op = KEO_SUB, e.func = ke_op_KEO_SUB, e.n_args = 2;
+			else e.op = KEO_NEG, e.func = ke_op_KEO_NEG, e.n_args = 1;
 			*r = q + 1;
-		} else if (*p == '=' && p[1] == '=')e.op = KEO_EQ,e.f.of = ke_op_KEO_EQ, e.n_args = 2, *r = q + 2;
-		else if (*p == '!' && p[1] == '=') e.op = KEO_NE, e.f.of = ke_op_KEO_NE, e.n_args = 2, *r = q + 2;
-		else if (*p == '>' && p[1] == '=') e.op = KEO_GE, e.f.of = ke_op_KEO_GE, e.n_args = 2, *r = q + 2;
-		else if (*p == '<' && p[1] == '=') e.op = KEO_LE, e.f.of = ke_op_KEO_LE, e.n_args = 2, *r = q + 2;
-		else if (*p == '>' && p[1] == '>') e.op = KEO_RSH, e.f.of = ke_op_KEO_RSH, e.n_args = 2, *r = q + 2;
-		else if (*p == '<' && p[1] == '<') e.op = KEO_LSH, e.f.of = ke_op_KEO_LSH, e.n_args = 2, *r = q + 2;
-		else if (*p == '>') e.op = KEO_GT, e.f.of = ke_op_KEO_GT, e.n_args = 2, *r = q + 1;
-		else if (*p == '<') e.op = KEO_LT, e.f.of = ke_op_KEO_LT, e.n_args = 2, *r = q + 1;
-		else if (*p == '|' && p[1] == '|') e.op = KEO_LOR, e.f.of = ke_op_KEO_LOR, e.n_args = 2, *r = q + 2;
-		else if (*p == '&' && p[1] == '&') e.op = KEO_LAND, e.f.of = ke_op_KEO_LAND, e.n_args = 2, *r = q + 2;
-		else if (*p == '|') e.op = KEO_BOR, e.f.of = ke_op_KEO_BOR, e.n_args = 2, *r = q + 1;
-		else if (*p == '&') e.op = KEO_BAND, e.f.of = ke_op_KEO_BAND, e.n_args = 2, *r = q + 1;
-		else if (*p == '^') e.op = KEO_BXOR, e.f.of = ke_op_KEO_BXOR, e.n_args = 2, *r = q + 1;
-		else if (*p == '~') e.op = KEO_BNOT, e.f.of = ke_op_KEO_BNOT, e.n_args = 1, *r = q + 1;
-		else if (*p == '!') e.op = KEO_LNOT, e.f.of = ke_op_KEO_LNOT, e.n_args = 1, *r = q + 1;
-		else e.ttype = KET_NULL, *err |= KEE_UNTO;
+		} else if (*p == '=' && p[1] == '=')e.op = KEO_EQ,e.func = ke_op_KEO_EQ, e.n_args = 2, *r = q + 2;
+		else if (*p == '!' && p[1] == '=') e.op = KEO_NE, e.func = ke_op_KEO_NE, e.n_args = 2, *r = q + 2;
+		else if (*p == '>' && p[1] == '=') e.op = KEO_GE, e.func = ke_op_KEO_GE, e.n_args = 2, *r = q + 2;
+		else if (*p == '<' && p[1] == '=') e.op = KEO_LE, e.func = ke_op_KEO_LE, e.n_args = 2, *r = q + 2;
+		else if (*p == '>' && p[1] == '>') e.op = KEO_RSH, e.func = ke_op_KEO_RSH, e.n_args = 2, *r = q + 2;
+		else if (*p == '<' && p[1] == '<') e.op = KEO_LSH, e.func = ke_op_KEO_LSH, e.n_args = 2, *r = q + 2;
+		else if (*p == '>') e.op = KEO_GT, e.func = ke_op_KEO_GT, e.n_args = 2, *r = q + 1;
+		else if (*p == '<') e.op = KEO_LT, e.func = ke_op_KEO_LT, e.n_args = 2, *r = q + 1;
+		else if (*p == '|' && p[1] == '|') e.op = KEO_LOR, e.func = ke_op_KEO_LOR, e.n_args = 2, *r = q + 2;
+		else if (*p == '&' && p[1] == '&') e.op = KEO_LAND, e.func = ke_op_KEO_LAND, e.n_args = 2, *r = q + 2;
+		else if (*p == '|') e.op = KEO_BOR, e.func = ke_op_KEO_BOR, e.n_args = 2, *r = q + 1;
+		else if (*p == '&') e.op = KEO_BAND, e.func = ke_op_KEO_BAND, e.n_args = 2, *r = q + 1;
+		else if (*p == '^') e.op = KEO_BXOR, e.func = ke_op_KEO_BXOR, e.n_args = 2, *r = q + 1;
+		else if (*p == '~') e.op = KEO_BNOT, e.func = ke_op_KEO_BNOT, e.n_args = 1, *r = q + 1;
+		else if (*p == '!') e.op = KEO_LNOT, e.func = ke_op_KEO_LNOT, e.n_args = 1, *r = q + 1;
+		else e.ttype = KET_NULL, *err |= KEE_UNOP;
 	}
 	return e;
 }
@@ -270,29 +268,32 @@ static ke1_t *ke_parse_core(const char *_s, int *_n, int *err)
 	p = s;
 	while (*p) {
 		if (*p == '(') {
-			t = push_back(&op, &n_op, &m_op);
-			t->op = -1, t->ttype = KET_NULL;
+			t = push_back(&op, &n_op, &m_op); // push to the operator stack
+			t->op = -1, t->ttype = KET_NULL; // ->op < 0 for a left parenthsis
 			++p;
 		} else if (*p == ')') {
-			while (n_op > 0 && op[n_op-1].op >= 0) {
+			while (n_op > 0 && op[n_op-1].op >= 0) { // move operators to the output until we see a left parenthesis
 				u = push_back(&out, &n_out, &m_out);
 				*u = op[--n_op];
 			}
-			if (n_op < 0) {
+			if (n_op < 0) { // error: extra right parenthesis
 				*err |= KEE_UNRP;
 				break;
 			} else --n_op; // pop out '('
-			if (n_op > 0 && op[n_op-1].ttype == KET_FUNC) {
-				u = push_back(&out, &n_out, &m_out); // pop out function and push to the output
+			if (n_op > 0 && op[n_op-1].ttype == KET_FUNC) { // the top of the operator stack is a function
+				u = push_back(&out, &n_out, &m_out); // move it to the output
 				*u = op[--n_op];
 				if (u->n_args == 1) {
-					if (strcmp(u->name, "abs") == 0) u->f.of = ke_func1_abs;
-					else if (strcmp(u->name, "log") == 0) u->f.of = ke_func1_log;
-					else if (strcmp(u->name, "exp") == 0) u->f.of = ke_func1_exp;
-					else if (strcmp(u->name, "log2") == 0) u->f.of = ke_func1_log2;
-					else if (strcmp(u->name, "exp2") == 0) u->f.of = ke_func1_exp2;
-					else if (strcmp(u->name, "log10") == 0) u->f.of = ke_func1_log10;
-					else if (strcmp(u->name, "sqrt") == 0) u->f.of = ke_func1_sqrt;
+					if (strcmp(u->name, "abs") == 0) u->func = ke_func1_abs;
+					else if (strcmp(u->name, "log") == 0) u->func = ke_func1_log;
+					else if (strcmp(u->name, "exp") == 0) u->func = ke_func1_exp;
+					else if (strcmp(u->name, "log2") == 0) u->func = ke_func1_log2;
+					else if (strcmp(u->name, "exp2") == 0) u->func = ke_func1_exp2;
+					else if (strcmp(u->name, "log10") == 0) u->func = ke_func1_log10;
+					else if (strcmp(u->name, "sqrt") == 0) u->func = ke_func1_sqrt;
+					else { *err |= KEE_UNFUNC; break; }
+				} else if (u->n_args == 2) {
+					if (strcmp(u->name, "pow") == 0) u->func = ke_func1_pow; // for now, this to test functions with multiple arguments
 					else { *err |= KEE_UNFUNC; break; }
 				} else {
 					*err |= KEE_UNFUNC;
@@ -300,12 +301,12 @@ static ke1_t *ke_parse_core(const char *_s, int *_n, int *err)
 				}
 			}
 			++p;
-		} else if (*p == ',') {
+		} else if (*p == ',') { // function arguments separator
 			while (n_op > 0 && op[n_op-1].op >= 0) {
 				u = push_back(&out, &n_out, &m_out);
 				*u = op[--n_op];
 			}
-			if (n_op < 2 || op[n_op-2].ttype != KET_FUNC) {
+			if (n_op < 2 || op[n_op-2].ttype != KET_FUNC) { // we should at least see a function and a left parenthesis
 				*err |= KEE_FUNC;
 				break;
 			}
@@ -368,37 +369,33 @@ static ke1_t *ke_parse_core(const char *_s, int *_n, int *err)
 kexpr_t *ke_parse(const char *_s, int *err)
 {
 	int n;
-	ke1_t *a;
+	ke1_t *e;
 	kexpr_t *ke;
-	a = ke_parse_core(_s, &n, err);
+	e = ke_parse_core(_s, &n, err);
 	if (*err) return 0;
 	ke = (kexpr_t*)calloc(1, sizeof(kexpr_t));
-	ke->n = n;
-	ke->e = a;
+	ke->n = n, ke->e = e;
 	return ke;
 }
 
-int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, int *int_ret)
+void ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, int *int_ret)
 {
 	ke1_t *stack, *p, *q;
-	int i, top = 0, err = 0;
+	int i, top = 0;
 	stack = (ke1_t*)malloc(ke->n * sizeof(ke1_t));
 	for (i = 0; i < ke->n; ++i) {
 		ke1_t *e = &ke->e[i];
-		if (e->ttype == KET_VAL) {
-			stack[top++] = *e;
-		} else if (e->ttype == KET_OP || e->ttype == KET_FUNC) {
+		if (e->ttype == KET_OP || e->ttype == KET_FUNC) {
 			if (e->n_args == 2) {
 				q = &stack[--top], p = &stack[top-1];
-				e->f.of(p, q);
+				e->func(p, q);
 			} else if (e->n_args == 1) {
-				e->f.of(&stack[top-1], 0);
-			}
-		}
+				e->func(&stack[top-1], 0);
+			} else abort(); // TODO: so far, no functions have three or more arguments; may happen in future
+		} else stack[top++] = *e;
 	}
 	free(stack);
 	*_i = stack->i, *_r = stack->r, *int_ret = (stack->vtype == KEV_INT);
-	return err;
 }
 
 void ke_destroy(kexpr_t *ke)
@@ -507,11 +504,7 @@ int main(int argc, char *argv[])
 				ke_set_real(ke, s, strtod(p+1, &p));
 			}
 		}
-		err = ke_eval(ke, &vi, &vr, &int_ret);
-		if (err) {
-			fprintf(stderr, "ERROR: 0x%x\n", err);
-			return 1;
-		}
+		ke_eval(ke, &vi, &vr, &int_ret);
 		if (is_int) printf("%lld\n", (long long)vi);
 		else printf("%g\n", vr);
 	} else ke_print(ke);
