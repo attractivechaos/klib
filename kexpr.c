@@ -12,8 +12,8 @@
  ***************/
 
 #define KEO_NULL  0
-#define KEO_POS  1
-#define KEO_NEG 2
+#define KEO_POS   1
+#define KEO_NEG   2
 #define KEO_BNOT  3
 #define KEO_LNOT  4
 #define KEO_POW   5
@@ -46,13 +46,20 @@
 #define KEV_INT   2
 #define KEV_STR   3
 
+#define KEF_NULL  0
+#define KEF_REAL  1
+
 struct ke1_s;
 
 typedef struct ke1_s {
-	uint32_t ttype:16, vtype:16; // ttype: token type; vtype: value type
-	int32_t op:8, n_args:23, assigned:1; // op: operator, n_args: number of arguments, assigned: if a variable is assigned
+	uint32_t ttype:16, vtype:10, assigned:1, user_func:5; // ttype: token type; vtype: value type
+	int32_t op:8, n_args:24; // op: operator, n_args: number of arguments
 	char *name; // variable name or function name
-	void (*func)(struct ke1_s *a, struct ke1_s *b); // execution function
+	union {
+		void (*builtin)(struct ke1_s *a, struct ke1_s *b); // execution function
+		double (*real_func1)(double);
+		double (*real_func2)(double, double);
+	} f;
 	double r;
 	int64_t i;
 	char *s;
@@ -147,21 +154,7 @@ static void ke_op_KEO_LNOT(ke1_t *p, ke1_t *q) { p->i = !p->i; p->r = (double)p-
 static void ke_op_KEO_POS(ke1_t *p, ke1_t *q)  { } // do nothing
 static void ke_op_KEO_NEG(ke1_t *p, ke1_t *q)  { p->i = -p->i, p->r = -p->r; }
 
-#define KE_GEN_FUNC1(_func) \
-	void ke_func1_##_func(ke1_t *p, ke1_t *q) { \
-		p->r = _func(p->r); p->i = (int64_t)(p->r + .5); \
-		p->vtype = KEV_REAL; \
-	}
-
-KE_GEN_FUNC1(log)
-KE_GEN_FUNC1(exp)
-KE_GEN_FUNC1(log2)
-KE_GEN_FUNC1(log10)
-KE_GEN_FUNC1(exp2)
-KE_GEN_FUNC1(sqrt)
-
 static void ke_func1_abs(ke1_t *p, ke1_t *q) { if (p->vtype == KEV_INT) p->i = abs(p->i), p->r = (double)p->i; else p->r = fabs(p->r), p->i = (int64_t)(p->r + .5); }
-static void ke_func1_pow(ke1_t *p, ke1_t *q) { ke_op_KEO_POW(p, q); }
 
 /**********
  * Parser *
@@ -207,34 +200,34 @@ static ke1_t ke_read_token(char *p, char **r, int *err, int last_is_val) // it d
 		} else *err |= KEE_UNQU, *r = p;
 	} else { // an operator
 		e.ttype = KET_OP;
-		if (*p == '*' && p[1] == '*') e.op = KEO_POW, e.func = ke_op_KEO_POW, e.n_args = 2, *r = q + 2;
-		else if (*p == '*') e.op = KEO_MUL, e.func = ke_op_KEO_MUL, e.n_args = 2, *r = q + 1; // FIXME: NOT working for unary operators
-		else if (*p == '/' && p[1] == '/') e.op = KEO_IDIV, e.func = ke_op_KEO_IDIV, e.n_args = 2, *r = q + 2;
-		else if (*p == '/') e.op = KEO_DIV, e.func = ke_op_KEO_DIV, e.n_args = 2, *r = q + 1;
-		else if (*p == '%') e.op = KEO_MOD, e.func = ke_op_KEO_MOD, e.n_args = 2, *r = q + 1;
+		if (*p == '*' && p[1] == '*') e.op = KEO_POW, e.f.builtin = ke_op_KEO_POW, e.n_args = 2, *r = q + 2;
+		else if (*p == '*') e.op = KEO_MUL, e.f.builtin = ke_op_KEO_MUL, e.n_args = 2, *r = q + 1; // FIXME: NOT working for unary operators
+		else if (*p == '/' && p[1] == '/') e.op = KEO_IDIV, e.f.builtin = ke_op_KEO_IDIV, e.n_args = 2, *r = q + 2;
+		else if (*p == '/') e.op = KEO_DIV, e.f.builtin = ke_op_KEO_DIV, e.n_args = 2, *r = q + 1;
+		else if (*p == '%') e.op = KEO_MOD, e.f.builtin = ke_op_KEO_MOD, e.n_args = 2, *r = q + 1;
 		else if (*p == '+') {
-			if (last_is_val) e.op = KEO_ADD, e.func = ke_op_KEO_ADD, e.n_args = 2;
-			else e.op = KEO_POS, e.func = ke_op_KEO_POS, e.n_args = 1;
+			if (last_is_val) e.op = KEO_ADD, e.f.builtin = ke_op_KEO_ADD, e.n_args = 2;
+			else e.op = KEO_POS, e.f.builtin = ke_op_KEO_POS, e.n_args = 1;
 			*r = q + 1;
 		} else if (*p == '-') {
-			if (last_is_val) e.op = KEO_SUB, e.func = ke_op_KEO_SUB, e.n_args = 2;
-			else e.op = KEO_NEG, e.func = ke_op_KEO_NEG, e.n_args = 1;
+			if (last_is_val) e.op = KEO_SUB, e.f.builtin = ke_op_KEO_SUB, e.n_args = 2;
+			else e.op = KEO_NEG, e.f.builtin = ke_op_KEO_NEG, e.n_args = 1;
 			*r = q + 1;
-		} else if (*p == '=' && p[1] == '=')e.op = KEO_EQ,e.func = ke_op_KEO_EQ, e.n_args = 2, *r = q + 2;
-		else if (*p == '!' && p[1] == '=') e.op = KEO_NE, e.func = ke_op_KEO_NE, e.n_args = 2, *r = q + 2;
-		else if (*p == '>' && p[1] == '=') e.op = KEO_GE, e.func = ke_op_KEO_GE, e.n_args = 2, *r = q + 2;
-		else if (*p == '<' && p[1] == '=') e.op = KEO_LE, e.func = ke_op_KEO_LE, e.n_args = 2, *r = q + 2;
-		else if (*p == '>' && p[1] == '>') e.op = KEO_RSH, e.func = ke_op_KEO_RSH, e.n_args = 2, *r = q + 2;
-		else if (*p == '<' && p[1] == '<') e.op = KEO_LSH, e.func = ke_op_KEO_LSH, e.n_args = 2, *r = q + 2;
-		else if (*p == '>') e.op = KEO_GT, e.func = ke_op_KEO_GT, e.n_args = 2, *r = q + 1;
-		else if (*p == '<') e.op = KEO_LT, e.func = ke_op_KEO_LT, e.n_args = 2, *r = q + 1;
-		else if (*p == '|' && p[1] == '|') e.op = KEO_LOR, e.func = ke_op_KEO_LOR, e.n_args = 2, *r = q + 2;
-		else if (*p == '&' && p[1] == '&') e.op = KEO_LAND, e.func = ke_op_KEO_LAND, e.n_args = 2, *r = q + 2;
-		else if (*p == '|') e.op = KEO_BOR, e.func = ke_op_KEO_BOR, e.n_args = 2, *r = q + 1;
-		else if (*p == '&') e.op = KEO_BAND, e.func = ke_op_KEO_BAND, e.n_args = 2, *r = q + 1;
-		else if (*p == '^') e.op = KEO_BXOR, e.func = ke_op_KEO_BXOR, e.n_args = 2, *r = q + 1;
-		else if (*p == '~') e.op = KEO_BNOT, e.func = ke_op_KEO_BNOT, e.n_args = 1, *r = q + 1;
-		else if (*p == '!') e.op = KEO_LNOT, e.func = ke_op_KEO_LNOT, e.n_args = 1, *r = q + 1;
+		} else if (*p == '=' && p[1] == '=')e.op = KEO_EQ,e.f.builtin = ke_op_KEO_EQ, e.n_args = 2, *r = q + 2;
+		else if (*p == '!' && p[1] == '=') e.op = KEO_NE, e.f.builtin = ke_op_KEO_NE, e.n_args = 2, *r = q + 2;
+		else if (*p == '>' && p[1] == '=') e.op = KEO_GE, e.f.builtin = ke_op_KEO_GE, e.n_args = 2, *r = q + 2;
+		else if (*p == '<' && p[1] == '=') e.op = KEO_LE, e.f.builtin = ke_op_KEO_LE, e.n_args = 2, *r = q + 2;
+		else if (*p == '>' && p[1] == '>') e.op = KEO_RSH, e.f.builtin = ke_op_KEO_RSH, e.n_args = 2, *r = q + 2;
+		else if (*p == '<' && p[1] == '<') e.op = KEO_LSH, e.f.builtin = ke_op_KEO_LSH, e.n_args = 2, *r = q + 2;
+		else if (*p == '>') e.op = KEO_GT, e.f.builtin = ke_op_KEO_GT, e.n_args = 2, *r = q + 1;
+		else if (*p == '<') e.op = KEO_LT, e.f.builtin = ke_op_KEO_LT, e.n_args = 2, *r = q + 1;
+		else if (*p == '|' && p[1] == '|') e.op = KEO_LOR, e.f.builtin = ke_op_KEO_LOR, e.n_args = 2, *r = q + 2;
+		else if (*p == '&' && p[1] == '&') e.op = KEO_LAND, e.f.builtin = ke_op_KEO_LAND, e.n_args = 2, *r = q + 2;
+		else if (*p == '|') e.op = KEO_BOR, e.f.builtin = ke_op_KEO_BOR, e.n_args = 2, *r = q + 1;
+		else if (*p == '&') e.op = KEO_BAND, e.f.builtin = ke_op_KEO_BAND, e.n_args = 2, *r = q + 1;
+		else if (*p == '^') e.op = KEO_BXOR, e.f.builtin = ke_op_KEO_BXOR, e.n_args = 2, *r = q + 1;
+		else if (*p == '~') e.op = KEO_BNOT, e.f.builtin = ke_op_KEO_BNOT, e.n_args = 1, *r = q + 1;
+		else if (*p == '!') e.op = KEO_LNOT, e.f.builtin = ke_op_KEO_LNOT, e.n_args = 1, *r = q + 1;
 		else e.ttype = KET_NULL, *err |= KEE_UNOP;
 	}
 	return e;
@@ -283,17 +276,7 @@ static ke1_t *ke_parse_core(const char *_s, int *_n, int *err)
 			if (n_op > 0 && op[n_op-1].ttype == KET_FUNC) { // the top of the operator stack is a function
 				u = push_back(&out, &n_out, &m_out); // move it to the output
 				*u = op[--n_op];
-				if (u->n_args == 1) {
-					if (strcmp(u->name, "abs") == 0) u->func = ke_func1_abs;
-					else if (strcmp(u->name, "log") == 0) u->func = ke_func1_log;
-					else if (strcmp(u->name, "exp") == 0) u->func = ke_func1_exp;
-					else if (strcmp(u->name, "log2") == 0) u->func = ke_func1_log2;
-					else if (strcmp(u->name, "exp2") == 0) u->func = ke_func1_exp2;
-					else if (strcmp(u->name, "log10") == 0) u->func = ke_func1_log10;
-					else if (strcmp(u->name, "sqrt") == 0) u->func = ke_func1_sqrt;
-				} else if (u->n_args == 2) {
-					if (strcmp(u->name, "pow") == 0) u->func = ke_func1_pow; // for now, this to test functions with multiple arguments
-				}
+				if (u->n_args == 1 && strcmp(u->name, "abs") == 0) u->f.builtin = ke_func1_abs;
 			}
 			++p;
 		} else if (*p == ',') { // function arguments separator
@@ -380,7 +363,7 @@ int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, int *int_ret)
 	*_i = 0, *_r = 0., *int_ret = 0;
 	for (i = 0; i < ke->n; ++i) {
 		ke1_t *e = &ke->e[i];
-		if ((e->ttype == KET_OP || e->ttype == KET_FUNC) && e->func == 0) err |= KEE_UNFUNC;
+		if ((e->ttype == KET_OP || e->ttype == KET_FUNC) && e->f.builtin == 0) err |= KEE_UNFUNC;
 		else if (e->ttype == KET_VAL && e->name && e->assigned == 0) err |= KEE_UNVAR;
 	}
 	if (err & KEE_UNFUNC) return err;
@@ -390,10 +373,17 @@ int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, int *int_ret)
 		if (e->ttype == KET_OP || e->ttype == KET_FUNC) {
 			if (e->n_args == 2) {
 				q = &stack[--top], p = &stack[top-1];
-				e->func(p, q);
+				if (e->user_func) {
+					if (e->user_func == KEF_REAL)
+						p->r = e->f.real_func2(p->r, q->r), p->i = (int64_t)(p->r + .5), p->vtype = KEV_REAL;
+				} else e->f.builtin(p, q);
 			} else if (e->n_args == 1) {
-				e->func(&stack[top-1], 0);
-			} else abort(); // TODO: so far, no functions have three or more arguments; may happen in future
+				p = &stack[top-1];
+				if (e->user_func) {
+					if (e->user_func == KEF_REAL)
+						p->r = e->f.real_func1(p->r), p->i = (int64_t)(p->r + .5), p->vtype = KEV_REAL;
+				} else e->f.builtin(&stack[top-1], 0);
+			} else top -= e->n_args - 1;
 		} else stack[top++] = *e;
 	}
 	*_i = stack->i, *_r = stack->r, *int_ret = (stack->vtype == KEV_INT);
@@ -452,6 +442,43 @@ int ke_set_str(kexpr_t *ke, const char *var, const char *x)
 	return n;
 }
 
+int ke_set_real_func1(kexpr_t *ke, const char *name, double (*func)(double))
+{
+	int i, n = 0;
+	for (i = 0; i < ke->n; ++i) {
+		ke1_t *e = &ke->e[i];
+		if (e->ttype == KET_FUNC && e->n_args == 1 && strcmp(e->name, name) == 0)
+			e->f.real_func1 = func, e->user_func = KEF_REAL, ++n;
+	}
+	return n;
+}
+
+int ke_set_real_func2(kexpr_t *ke, const char *name, double (*func)(double, double))
+{
+	int i, n = 0;
+	for (i = 0; i < ke->n; ++i) {
+		ke1_t *e = &ke->e[i];
+		if (e->ttype == KET_FUNC && e->n_args == 2 && strcmp(e->name, name) == 0)
+			e->f.real_func2 = func, e->user_func = KEF_REAL, ++n;
+	}
+	return n;
+}
+
+int ke_set_default_func(kexpr_t *ke)
+{
+	int n = 0;
+	n += ke_set_real_func1(ke, "exp", exp);
+	n += ke_set_real_func1(ke, "exp2", exp2);
+	n += ke_set_real_func1(ke, "log", log);
+	n += ke_set_real_func1(ke, "log2", log2);
+	n += ke_set_real_func1(ke, "log10", log10);
+	n += ke_set_real_func1(ke, "sqrt", sqrt);
+	n += ke_set_real_func1(ke, "sin", sin);
+	n += ke_set_real_func1(ke, "cos", cos);
+	n += ke_set_real_func1(ke, "tan", tan);
+	return n;
+}
+
 void ke_unset(kexpr_t *ke)
 {
 	int i;
@@ -500,6 +527,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 	ke = ke_parse(argv[optind], &err);
+	ke_set_default_func(ke);
 	if (err) {
 		fprintf(stderr, "Parse error: 0x%x\n", err);
 		return 1;
