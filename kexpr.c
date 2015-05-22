@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <assert.h>
 #include <stdio.h>
 #include <ctype.h>
 #include <math.h>
@@ -50,13 +51,14 @@ struct ke1_s;
 typedef struct ke1_s {
 	uint32_t ttype:16, vtype:16;
 	int32_t op:8, n_args:24;
-	char *name, *s;
+	char *name;
 	union {
 		void (*of)(struct ke1_s *a, struct ke1_s *b);
 		double (*ff1)(double); // not used for now
 	} f;
 	double r;
 	int64_t i;
+	char *s;
 } ke1_t;
 
 static int ke_op[25] = {
@@ -147,6 +149,21 @@ void ke_op_KEO_BNOT(ke1_t *p, ke1_t *q) { p->i = ~p->i; p->r = (double)p->i; p->
 void ke_op_KEO_LNOT(ke1_t *p, ke1_t *q) { p->i = !p->i; p->r = (double)p->i; p->vtype = KEV_INT; }
 void ke_op_KEO_POS(ke1_t *p, ke1_t *q)  { } // do nothing
 void ke_op_KEO_NEG(ke1_t *p, ke1_t *q)  { p->i = -p->i, p->r = -p->r; }
+
+#define KE_GEN_FUNC1(_func) \
+	void ke_func1_##_func(ke1_t *p, ke1_t *q) { \
+		p->r = _func(p->r); p->i = (int64_t)(p->r + .5); \
+		p->vtype = KEV_REAL; \
+	}
+
+KE_GEN_FUNC1(log)
+KE_GEN_FUNC1(exp)
+KE_GEN_FUNC1(log2)
+KE_GEN_FUNC1(log10)
+KE_GEN_FUNC1(exp2)
+KE_GEN_FUNC1(sqrt)
+
+void ke_func1_abs(ke1_t *p, ke1_t *q) { if (p->vtype == KEV_INT) p->i = abs(p->i), p->r = (double)p->i; else p->r = fabs(p->r), p->i = (int64_t)(p->r + .5); }
 
 /**********
  * Parser *
@@ -266,8 +283,21 @@ static ke1_t *ke_parse_core(const char *_s, int *_n, int *err)
 				break;
 			} else --n_op; // pop out '('
 			if (n_op > 0 && op[n_op-1].ttype == KET_FUNC) {
-				u = push_back(&out, &n_out, &m_out);
+				u = push_back(&out, &n_out, &m_out); // pop out function and push to the output
 				*u = op[--n_op];
+				if (u->n_args == 1) {
+					if (strcmp(u->name, "abs") == 0) u->f.of = ke_func1_abs;
+					else if (strcmp(u->name, "log") == 0) u->f.of = ke_func1_log;
+					else if (strcmp(u->name, "exp") == 0) u->f.of = ke_func1_exp;
+					else if (strcmp(u->name, "log2") == 0) u->f.of = ke_func1_log2;
+					else if (strcmp(u->name, "exp2") == 0) u->f.of = ke_func1_exp2;
+					else if (strcmp(u->name, "log10") == 0) u->f.of = ke_func1_log10;
+					else if (strcmp(u->name, "sqrt") == 0) u->f.of = ke_func1_sqrt;
+					else { *err |= KEE_UNFUNC; break; }
+				} else {
+					*err |= KEE_UNFUNC;
+					break;
+				}
 			}
 			++p;
 		} else if (*p == ',') {
@@ -340,12 +370,6 @@ kexpr_t *ke_parse(const char *_s, int *err)
 
 int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, int *int_ret)
 {
-#define _do_func1(_func) do { \
-		p = &stack[top-1]; \
-		p->r = _func(p->r); p->i = (int64_t)(p->r + .5); \
-		p->vtype = KEV_REAL; \
-	} while (0)
-
 	ke1_t *stack, *p, *q;
 	int i, top = 0, err = 0;
 	stack = (ke1_t*)malloc(ke->n * sizeof(ke1_t));
@@ -353,33 +377,14 @@ int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, int *int_ret)
 		ke1_t *e = &ke->e[i];
 		if (e->ttype == KET_VAL) {
 			stack[top++] = *e;
-		} else if (e->ttype == KET_OP) {
+		} else if (e->ttype == KET_OP || e->ttype == KET_FUNC) {
 			if (top == 0) break;
-			if (e->f.of) {
-				if (e->n_args == 2) {
-					q = &stack[--top], p = &stack[top-1];
-					e->f.of(p, q);
-				} else if (e->n_args == 1) {
-					e->f.of(&stack[top-1], 0);
-				}
-			}
-		} else if (e->ttype == KET_FUNC) {
-			if (e->n_args == 1) {
-				if (strcmp(e->name, "abs") == 0) {
-					p = &stack[top-1];
-					if (p->vtype == KEV_INT) p->i = abs(p->i), p->r = (double)p->i;
-					else p->r = fabs(p->r), p->i = (int64_t)(p->r + .5);
-				} else if (strcmp(e->name, "log") == 0) _do_func1(log);
-				else if (strcmp(e->name, "exp") == 0) _do_func1(exp);
-				else if (strcmp(e->name, "log2") == 0) _do_func1(log2);
-				else if (strcmp(e->name, "exp2") == 0) _do_func1(exp2);
-				else if (strcmp(e->name, "log10") == 0) _do_func1(log10);
-				else if (strcmp(e->name, "sqrt") == 0) _do_func1(sqrt);
-				else { err |= KEE_UNFUNC; break; }
-			} else {
-				err |= KEE_UNFUNC;
-				top -= e->n_args - 1;
-				break;
+			assert(e->f.of);
+			if (e->n_args == 2) {
+				q = &stack[--top], p = &stack[top-1];
+				e->f.of(p, q);
+			} else if (e->n_args == 1) {
+				e->f.of(&stack[top-1], 0);
 			}
 		}
 	}
