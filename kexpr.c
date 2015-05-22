@@ -361,16 +361,23 @@ int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, int *int_ret)
 				p->vtype = KEV_INT;
 			}
 		} else if (e->ttype == KET_FUNC) {
-			if (strcmp(e->name, "abs") == 0) {
-				p = &stack[top-1];
-				if (p->vtype == KEV_INT) p->i = abs(p->i), p->r = (double)p->i;
-				else p->r = fabs(p->r), p->i = (int64_t)(p->r + .5);
-			} else if (strcmp(e->name, "log") == 0) _do_func1(log);
-			else if (strcmp(e->name, "exp") == 0) _do_func1(exp);
-			else if (strcmp(e->name, "log2") == 0) _do_func1(log2);
-			else if (strcmp(e->name, "exp2") == 0) _do_func1(exp2);
-			else if (strcmp(e->name, "log10") == 0) _do_func1(log10);
-			else if (strcmp(e->name, "sqrt") == 0) _do_func1(sqrt);
+			if (e->n_args == 1) {
+				if (strcmp(e->name, "abs") == 0) {
+					p = &stack[top-1];
+					if (p->vtype == KEV_INT) p->i = abs(p->i), p->r = (double)p->i;
+					else p->r = fabs(p->r), p->i = (int64_t)(p->r + .5);
+				} else if (strcmp(e->name, "log") == 0) _do_func1(log);
+				else if (strcmp(e->name, "exp") == 0) _do_func1(exp);
+				else if (strcmp(e->name, "log2") == 0) _do_func1(log2);
+				else if (strcmp(e->name, "exp2") == 0) _do_func1(exp2);
+				else if (strcmp(e->name, "log10") == 0) _do_func1(log10);
+				else if (strcmp(e->name, "sqrt") == 0) _do_func1(sqrt);
+				else { err |= KEE_UNFUNC; break; }
+			} else {
+				err |= KEE_UNFUNC;
+				top -= e->n_args - 1;
+				break;
+			}
 		}
 	}
 	if (top != 1) err |= KEE_ARG;

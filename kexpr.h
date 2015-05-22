@@ -12,7 +12,8 @@ typedef struct kexpr_s kexpr_t;
 #define KEE_UNTO  8 // unknown tokens
 #define KEE_FUNC 16 // wrong function
 
-#define KEE_ARG  32
+#define KEE_ARG    32
+#define KEE_UNFUNC 64
 
 #ifdef __cplusplus
 extern "C" {
