@@ -6,14 +6,13 @@
 struct kexpr_s;
 typedef struct kexpr_s kexpr_t;
 
-#define KEE_UNDQ  1 // unmatched double quotation marks
-#define KEE_UNLP  2 // unmatched left parentheses
-#define KEE_UNRP  4 // unmatched right parentheses
-#define KEE_UNTO  8 // unknown tokens
-#define KEE_FUNC 16 // wrong function
-
-#define KEE_ARG    32
-#define KEE_UNFUNC 64
+#define KEE_UNDQ    0x01 // unmatched double quotation marks
+#define KEE_UNLP    0x02 // unmatched left parentheses
+#define KEE_UNRP    0x04 // unmatched right parentheses
+#define KEE_UNTO    0x08 // unknown tokens
+#define KEE_FUNC    0x10 // wrong function
+#define KEE_ARG     0x20
+#define KEE_UNFUNC  0x40 // undefined function
 
 #ifdef __cplusplus
 extern "C" {

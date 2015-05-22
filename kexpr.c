@@ -103,7 +103,7 @@ struct kexpr_s {
  **********************/
 
 #define KE_GEN_CMP(_type, _op) \
-	void ke_op_##_type(ke1_t *p, ke1_t *q) { \
+	static void ke_op_##_type(ke1_t *p, ke1_t *q) { \
 		if (p->vtype == KEV_STR && q->vtype == KEV_STR) p->i = (strcmp(p->s, q->s) _op 0); \
 		else p->i = p->vtype == KEV_REAL || q->vtype == KEV_REAL? (p->r _op q->r) : (p->i _op q->i); \
 		p->r = (double)p->i; \
@@ -118,7 +118,7 @@ KE_GEN_CMP(KEO_EQ, ==)
 KE_GEN_CMP(KEO_NE, !=)
 
 #define KE_GEN_BIN_INT(_type, _op) \
-	void ke_op_##_type(ke1_t *p, ke1_t *q) { \
+	static void ke_op_##_type(ke1_t *p, ke1_t *q) { \
 		p->i _op q->i; p->r = (double)p->i; \
 		p->vtype = KEV_INT; \
 	}
@@ -132,7 +132,7 @@ KE_GEN_BIN_INT(KEO_MOD, %=)
 KE_GEN_BIN_INT(KEO_IDIV, /=)
 
 #define KE_GEN_BIN_BOTH(_type, _op) \
-	void ke_op_##_type(ke1_t *p, ke1_t *q) { \
+	static void ke_op_##_type(ke1_t *p, ke1_t *q) { \
 		p->i _op q->i; p->r _op q->r; \
 		p->vtype = p->vtype == KEV_REAL || q->vtype == KEV_REAL? KEV_REAL : KEV_INT; \
 	}
@@ -141,14 +141,14 @@ KE_GEN_BIN_BOTH(KEO_ADD, +=)
 KE_GEN_BIN_BOTH(KEO_SUB, -=)
 KE_GEN_BIN_BOTH(KEO_MUL, *=)
 
-void ke_op_KEO_DIV(ke1_t *p, ke1_t *q)  { p->r /= q->r, p->i = (int64_t)(p->r + .5); p->vtype = KEV_REAL; }
-void ke_op_KEO_LAND(ke1_t *p, ke1_t *q) { p->i = (p->i && q->i); p->r = p->i; p->vtype = KEV_INT; }
-void ke_op_KEO_LOR(ke1_t *p, ke1_t *q)  { p->i = (p->i || q->i); p->r = p->i; p->vtype = KEV_INT; }
-void ke_op_KEO_POW(ke1_t *p, ke1_t *q)  { p->r = pow(p->r, q->r), p->i = (int64_t)(p->r + .5); p->vtype = p->vtype == KEV_REAL || q->vtype == KEV_REAL? KEV_REAL : KEV_INT; }
-void ke_op_KEO_BNOT(ke1_t *p, ke1_t *q) { p->i = ~p->i; p->r = (double)p->i; p->vtype = KEV_INT; }
-void ke_op_KEO_LNOT(ke1_t *p, ke1_t *q) { p->i = !p->i; p->r = (double)p->i; p->vtype = KEV_INT; }
-void ke_op_KEO_POS(ke1_t *p, ke1_t *q)  { } // do nothing
-void ke_op_KEO_NEG(ke1_t *p, ke1_t *q)  { p->i = -p->i, p->r = -p->r; }
+static void ke_op_KEO_DIV(ke1_t *p, ke1_t *q)  { p->r /= q->r, p->i = (int64_t)(p->r + .5); p->vtype = KEV_REAL; }
+static void ke_op_KEO_LAND(ke1_t *p, ke1_t *q) { p->i = (p->i && q->i); p->r = p->i; p->vtype = KEV_INT; }
+static void ke_op_KEO_LOR(ke1_t *p, ke1_t *q)  { p->i = (p->i || q->i); p->r = p->i; p->vtype = KEV_INT; }
+static void ke_op_KEO_POW(ke1_t *p, ke1_t *q)  { p->r = pow(p->r, q->r), p->i = (int64_t)(p->r + .5); p->vtype = p->vtype == KEV_REAL || q->vtype == KEV_REAL? KEV_REAL : KEV_INT; }
+static void ke_op_KEO_BNOT(ke1_t *p, ke1_t *q) { p->i = ~p->i; p->r = (double)p->i; p->vtype = KEV_INT; }
+static void ke_op_KEO_LNOT(ke1_t *p, ke1_t *q) { p->i = !p->i; p->r = (double)p->i; p->vtype = KEV_INT; }
+static void ke_op_KEO_POS(ke1_t *p, ke1_t *q)  { } // do nothing
+static void ke_op_KEO_NEG(ke1_t *p, ke1_t *q)  { p->i = -p->i, p->r = -p->r; }
 
 #define KE_GEN_FUNC1(_func) \
 	void ke_func1_##_func(ke1_t *p, ke1_t *q) { \
@@ -163,7 +163,7 @@ KE_GEN_FUNC1(log10)
 KE_GEN_FUNC1(exp2)
 KE_GEN_FUNC1(sqrt)
 
-void ke_func1_abs(ke1_t *p, ke1_t *q) { if (p->vtype == KEV_INT) p->i = abs(p->i), p->r = (double)p->i; else p->r = fabs(p->r), p->i = (int64_t)(p->r + .5); }
+static void ke_func1_abs(ke1_t *p, ke1_t *q) { if (p->vtype == KEV_INT) p->i = abs(p->i), p->r = (double)p->i; else p->r = fabs(p->r), p->i = (int64_t)(p->r + .5); }
 
 /**********
  * Parser *
@@ -345,6 +345,16 @@ static ke1_t *ke_parse_core(const char *_s, int *_n, int *err)
 		}
 		if (n_op > 0) *err |= KEE_UNLP;
 	}
+	
+	if (*err == 0) { // then check if the number of args is correct
+		int i, n;
+		for (i = n = 0; i < n_out; ++i) {
+			ke1_t *e = &out[i];
+			if (e->ttype == KET_VAL) ++n;
+			else n -= e->n_args - 1;
+		}
+		if (n != 1) *err |= KEE_ARG;
+	}
 
 	free(op); free(s);
 	if (*err) {
@@ -378,8 +388,6 @@ int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, int *int_ret)
 		if (e->ttype == KET_VAL) {
 			stack[top++] = *e;
 		} else if (e->ttype == KET_OP || e->ttype == KET_FUNC) {
-			if (top == 0) break;
-			assert(e->f.of);
 			if (e->n_args == 2) {
 				q = &stack[--top], p = &stack[top-1];
 				e->f.of(p, q);
@@ -388,7 +396,6 @@ int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, int *int_ret)
 			}
 		}
 	}
-	if (top != 1) err |= KEE_ARG;
 	free(stack);
 	*_i = stack->i, *_r = stack->r, *int_ret = (stack->vtype == KEV_INT);
 	return err;
