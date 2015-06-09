@@ -82,6 +82,13 @@ extern "C" {
 	 * if sep is not changed. */
 	char *kstrtok(const char *str, const char *sep, ks_tokaux_t *aux);
 
+	/* kgetline() uses the supplied fgets()-like function to read a "\n"-
+	 * or "\r\n"-terminated line from fp.  The line read is appended to the
+	 * kstring without its terminator and 0 is returned; EOF is returned at
+	 * EOF or on error (determined by querying fp, as per fgets()). */
+	typedef char *kgets_func(char *, int, void *);
+	int kgetline(kstring_t *s, kgets_func *fgets, void *fp);
+
 #ifdef __cplusplus
 }
 #endif
