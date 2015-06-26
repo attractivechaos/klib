@@ -133,7 +133,13 @@ static void format_node_recur(const knhx1_t *node, const knhx1_t *p, kstring_t *
 			sprintf(numbuf, ":%g", p->d);
 			kputsn(numbuf, strlen(numbuf), s);
 		}
-	} else kputsn(p->name, strlen(p->name), s);
+	} else {
+	  kputsn(p->name, strlen(p->name), s);
+	  if (p->d >= 0) {
+	    sprintf(numbuf, ":%g", p->d);
+	    kputsn(numbuf, strlen(numbuf), s);
+	  }
+	}
 }
 
 void kn_format(const knhx1_t *node, int root, kstring_t *s) // TODO: get rid of recursion
