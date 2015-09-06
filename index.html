@@ -6328,7 +6328,7 @@ int main()
 }
 ```</pre>
 </div>
-<div created="20141130160556556" creator="lh3" modified="20150906214636521" modifier="lh3" tags="[[Library Documentations]]" title="Kthread: simple threading models">
+<div created="20141130160556556" creator="lh3" modified="20150906215331494" modifier="lh3" tags="[[Library Documentations]]" title="Kthread: simple threading models">
 <pre>!!Synopsis
 
 * Functionality: simple multi-threading models.
@@ -6432,7 +6432,7 @@ static void *worker_pipeline(void *shared, int step, void *in) // kt_pipeline() 
 	} else if (step == 1) { // step 1: reverse lines
 		kt_for(p-&gt;n_threads, worker_for, in, ((step_t*)in)-&gt;n_lines);
 		return in;
-	} else if (step == 2) { // step 3: write the buffer to output
+	} else if (step == 2) { // step 2: write the buffer to output
 		step_t *s = (step_t*)in;
 		while (s-&gt;n_lines &gt; 0) {
 			fputs(s-&gt;lines[--s-&gt;n_lines], stdout);
