@@ -6328,7 +6328,7 @@ int main()
 }
 ```</pre>
 </div>
-<div created="20141130160556556" creator="lh3" modified="20150906215331494" modifier="lh3" tags="[[Library Documentations]]" title="Kthread: simple threading models">
+<div created="20141130160556556" creator="lh3" modified="20150906215541681" modifier="lh3" tags="[[Library Documentations]]" title="Kthread: simple threading models">
 <pre>!!Synopsis
 
 * Functionality: simple multi-threading models.
@@ -6336,7 +6336,7 @@ int main()
 ** kt_pipeline(): parallelize a repeated multi-step pipeline with each step possibly on different threads.
 * Library source code: [[kthread.c|https://github.com/attractivechaos/klib/blob/master/kthread.c]]
 * Dependencies: [[POSIX thread|http://en.wikipedia.org/wiki/Native_POSIX_Thread_Library]]
-* Example program: [[kthread_test.c|https://github.com/attractivechaos/klib/blob/master/test/kthread_test.c]]
+* Example program: [[kthread_test.c|https://github.com/attractivechaos/klib/blob/master/test/kthread_test.c]] and [[kthread_test2.c|https://github.com/attractivechaos/klib/blob/master/test/kthread_test2.c]]
 * Blog post: [[Parallelize simple for loops|https://attractivechaos.wordpress.com/2013/10/11/parallelizing-simple-for-loops/]]
 
 !!Examples
@@ -6386,6 +6386,7 @@ int main(int argc, char *argv[])
 
 !!!Example 2: reverse lines with kt_pipeline() and kt_for(). This example is only for demonstration purpose. In practice, we don't need this complication.
 ```c
+// to compile: gcc this_prog.c kthread.c -pthread
 #include &lt;stdio.h&gt;
 #include &lt;stdlib.h&gt;
 #include &lt;string.h&gt;
