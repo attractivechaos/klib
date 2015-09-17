@@ -317,11 +317,11 @@ typedef struct {
 		return kb_delp_##name(b, &k);									\
 	}
 
-#define kb_itr_key(type, itr) __KB_KEY(type, (itr)->p->x)[(itr)->p->i]
-
 #define __KB_ITR(name, key_t) \
 	static inline void kb_itr_first_##name(kbtree_##name##_t *b, kbitr_t *itr) \
 	{ \
+		itr->p = 0; \
+		if (b->n_keys == 0) return; \
 		itr->p = itr->stack; \
 		itr->p->x = b->root; itr->p->i = 0; \
 		while (itr->p->x->is_internal && __KB_PTR(b, itr->p->x)[0] != 0) { \
@@ -388,6 +388,8 @@ typedef struct {
 #define kb_itr_first(name, b, i) kb_itr_first_##name(b, i)
 #define kb_itr_get(name, b, k, i) kb_itr_get_##name(b, k, i)
 #define kb_itr_next(name, b, i) kb_itr_next_##name(b, i)
+#define kb_itr_key(type, itr) __KB_KEY(type, (itr)->p->x)[(itr)->p->i]
+#define kb_itr_valid(itr) ((itr)->p >= (itr)->stack)
 
 #define kb_size(b) ((b)->n_keys)
 
