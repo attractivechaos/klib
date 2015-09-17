@@ -193,8 +193,6 @@ Error message and password prompt
 
 <li>CSS</li>
 
-<li>Draft of 'KBtree: generic ordered map'</li>
-
 <li>Generic Programming in C</li>
 
 <li>KBtree: generic ordered map</li>
@@ -5769,7 +5767,7 @@ pre .xml .cdata {
 <div created="20141130022153074" creator="l" modified="20141130022153293" modifier="lh" title="$:/status/UserName">
 <pre>lh3</pre>
 </div>
-<div list="[[Draft of 'KBtree: generic ordered map']] About" title="$:/StoryList">
+<div list="[[KBtree: generic ordered map]] About" title="$:/StoryList">
 <pre></pre>
 </div>
 <div modified="20141130024552231" modifier="lh3" title="$:/temp/advancedsearch">
@@ -5916,53 +5914,6 @@ code {
   color: #333333;
 }</pre>
 </div>
-<div created="20141130174442465" creator="lh3" draft.of="KBtree: generic ordered map" draft.title="KBtree: generic ordered map" modified="20150917234218743" modifier="lh3" tags="[[Library Documentations]]" title="Draft of 'KBtree: generic ordered map'">
-<pre>!!Synopsis
-* Functionality: generic balanced search tree based on B-tree.
-* Library source code: [[kbtree.h|https://github.com/attractivechaos/klib/blob/master/kbtree.h]]
-* Dependencies: none
-* Related articles: [[B-tree vs binary search tree|https://attractivechaos.wordpress.com/2008/09/24/b-tree-vs-binary-search-tree/]] and [[Another look at my old benchmark|https://attractivechaos.wordpress.com/2008/10/07/another-look-at-my-old-benchmark/]]
-!!Example
-!!!Example 1: count distinct words on the command line
-```c
-// gcc -O2 this_prog.c; ./a.out two one three two three three
-#include &lt;stdio.h&gt;
-#include &quot;kbtree.h&quot;
-
-typedef struct {
-    char *key;
-    int count;
-} elem_t;
-
-#define elem_cmp(a, b) (strcmp((a).key, (b).key))
-KBTREE_INIT(str, elem_t, elem_cmp)
-
-int main(int argc, char *argv[])
-{
-    kbtree_t(str) *b;
-    elem_t *p, t;
-    kbitr_t itr;
-    int i;
-    b = kb_init(str, KB_DEFAULT_SIZE);
-    for (i = 1; i &lt; argc; ++i) {
-        // no need to allocate; just use pointer
-        t.key = argv[i], t.count = 1;
-        p = kb_getp(str, b, &amp;t); // kb_get() also works
-        // IMPORTANT: put() only works if key is absent
-        if (!p) kb_putp(str, b, &amp;t);
-        else ++p-&gt;count;
-    }
-    // ordered tree traversal
-    kb_itr_first(str, b, &amp;itr); // get an iterator pointing to the first
-    for (; kb_itr_valid(&amp;itr); kb_itr_next(str, b, &amp;itr)) { // move on
-        p = &amp;kb_itr_key(elem_t, &amp;itr);
-        printf(&quot;%d\t%s\n&quot;, p-&gt;count, p-&gt;key);
-    }
-    kb_destroy(str, b);
-    return 0;
-}
-```</pre>
-</div>
 <div created="20141130035053305" creator="lh3" modified="20141201010131035" modifier="lh3" tags="TableOfContents" title="Generic Programming in C">
 <pre>For the implementation of generic [[containers|http://en.wikipedia.org/wiki/Container_(abstract_data_type)]], klib extensively uses C
 macros. To use these data structures, we usually need to instantiate methods by
@@ -6101,7 +6052,7 @@ as type-specific code. A generic library written with `void*` will not get such
 performance boost.
 </pre>
 </div>
-<div created="20141130174442465" creator="lh3" modified="20150917234135558" modifier="lh3" tags="[[Library Documentations]]" title="KBtree: generic ordered map">
+<div created="20141130174442465" creator="lh3" modified="20150917234352648" modifier="lh3" tags="[[Library Documentations]]" title="KBtree: generic ordered map">
 <pre>!!Synopsis
 * Functionality: generic balanced search tree based on B-tree.
 * Library source code: [[kbtree.h|https://github.com/attractivechaos/klib/blob/master/kbtree.h]]
@@ -6138,7 +6089,8 @@ int main(int argc, char *argv[])
         else ++p-&gt;count;
     }
     // ordered tree traversal
-    for (kb_itr_first(str, b, &amp;itr); kb_itr_valid(&amp;itr); kb_itr_next(str, b, &amp;itr)) {
+    kb_itr_first(str, b, &amp;itr); // get an iterator pointing to the first
+    for (; kb_itr_valid(&amp;itr); kb_itr_next(str, b, &amp;itr)) { // move on
         p = &amp;kb_itr_key(elem_t, &amp;itr);
         printf(&quot;%d\t%s\n&quot;, p-&gt;count, p-&gt;key);
     }
