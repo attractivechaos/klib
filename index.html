@@ -5767,7 +5767,7 @@ pre .xml .cdata {
 <div created="20141130022153074" creator="l" modified="20141130022153293" modifier="lh" title="$:/status/UserName">
 <pre>lh3</pre>
 </div>
-<div list="About" title="$:/StoryList">
+<div list="[[KBtree: generic ordered map]] About" title="$:/StoryList">
 <pre></pre>
 </div>
 <div modified="20141130024552231" modifier="lh3" title="$:/temp/advancedsearch">
@@ -6052,7 +6052,7 @@ as type-specific code. A generic library written with `void*` will not get such
 performance boost.
 </pre>
 </div>
-<div created="20141130174442465" creator="lh3" modified="20141130195456664" modifier="lh3" tags="[[Library Documentations]]" title="KBtree: generic ordered map">
+<div created="20141130174442465" creator="lh3" modified="20150917232716687" modifier="lh3" tags="[[Library Documentations]]" title="KBtree: generic ordered map">
 <pre>!!Synopsis
 * Functionality: generic balanced search tree based on B-tree.
 * Library source code: [[kbtree.h|https://github.com/attractivechaos/klib/blob/master/kbtree.h]]
@@ -6088,8 +6088,14 @@ int main(int argc, char *argv[])
         else ++p-&gt;count;
     }
     // ordered tree traversal
-    #define traverse_func(p) printf(&quot;%d\t%s\n&quot;, (p)-&gt;count, (p)-&gt;key);
-    __kb_traverse(elem_t, b, traverse_func);
+    if (kb_size(b) &gt; 0) { // not working on empty trees
+        kbitr_t itr;
+        kb_itr_first(str, b, &amp;itr); // get the first iterator
+        do {
+            p = &amp;kb_itr_key(elem_t, &amp;itr); // get pointer to the key
+            printf(&quot;%d\t%s\n&quot;, p-&gt;count, p-&gt;key);
+        } while (kb_itr_next(str, b, &amp;itr)); // move on
+    }
     kb_destroy(str, b);
     return 0;
 }
