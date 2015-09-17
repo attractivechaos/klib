@@ -32,9 +32,20 @@
 #include <string.h>
 #include <stdint.h>
 
+#define KB_MAX_DEPTH 64
+
 typedef struct {
 	int32_t is_internal:1, n:31;
 } kbnode_t;
+
+typedef struct {
+	kbnode_t *x;
+	int i;
+} kbpos_t;
+
+typedef struct {
+	kbpos_t stack[KB_MAX_DEPTH], *p;
+} kbitr_t;
 
 #define	__KB_KEY(type, x)	((type*)((char*)x + 4))
 #define __KB_PTR(btr, x)	((kbnode_t**)((char*)x + btr->off_ptr))
@@ -88,27 +99,6 @@ typedef struct {
 		}																\
 		free(b); free(stack);											\
 	} while (0)
-
-#define __kb_get_first(key_t, b, ret) do {	\
-		kbnode_t *__x = (b)->root;			\
-		while (__KB_PTR(b, __x)[0] != 0)	\
-			__x = __KB_PTR(b, __x)[0];		\
-		(ret) = __KB_KEY(key_t, __x)[0];	\
-	} while (0)
-
-#define __KB_GET_AUX0(name, key_t, __cmp)								\
-	static inline int __kb_get_aux_##name(const kbnode_t * __restrict x, const key_t * __restrict k, int *r) \
-	{																	\
-		int tr, *rr, begin, end, n = x->n >> 1;							\
-		if (x->n == 0) return -1;										\
-		if (__cmp(*k, __KB_KEY(key_t, x)[n]) < 0) {						\
-			begin = 0; end = n;											\
-		} else { begin = n; end = x->n - 1; }							\
-		rr = r? r : &tr;												\
-		n = end;														\
-		while (n >= begin && (*rr = __cmp(*k, __KB_KEY(key_t, x)[n])) < 0) --n; \
-		return n;														\
-	}
 
 #define __KB_GET_AUX1(name, key_t, __cmp)								\
 	static inline int __kb_getp_aux_##name(const kbnode_t * __restrict x, const key_t * __restrict k, int *r) \
@@ -185,14 +175,16 @@ typedef struct {
 		__KB_KEY(key_t, x)[i] = __KB_KEY(key_t, y)[b->t - 1];			\
 		++x->n;															\
 	}																	\
-	static void __kb_putp_aux_##name(kbtree_##name##_t *b, kbnode_t *x, const key_t * __restrict k) \
+	static key_t *__kb_putp_aux_##name(kbtree_##name##_t *b, kbnode_t *x, const key_t * __restrict k) \
 	{																	\
 		int i = x->n - 1;												\
+		key_t *ret;														\
 		if (x->is_internal == 0) {										\
 			i = __kb_getp_aux_##name(x, k, 0);							\
 			if (i != x->n - 1)											\
 				memmove(__KB_KEY(key_t, x) + i + 2, __KB_KEY(key_t, x) + i + 1, (x->n - i - 1) * sizeof(key_t)); \
-			__KB_KEY(key_t, x)[i + 1] = *k;								\
+			ret = &__KB_KEY(key_t, x)[i + 1];							\
+			*ret = *k;													\
 			++x->n;														\
 		} else {														\
 			i = __kb_getp_aux_##name(x, k, 0) + 1;						\
@@ -200,10 +192,11 @@ typedef struct {
 				__kb_split_##name(b, x, i, __KB_PTR(b, x)[i]);			\
 				if (__cmp(*k, __KB_KEY(key_t, x)[i]) > 0) ++i;			\
 			}															\
-			__kb_putp_aux_##name(b, __KB_PTR(b, x)[i], k);				\
+			ret = __kb_putp_aux_##name(b, __KB_PTR(b, x)[i], k);		\
 		}																\
+		return ret; 													\
 	}																	\
-	static void kb_putp_##name(kbtree_##name##_t *b, const key_t * __restrict k) \
+	static key_t *kb_putp_##name(kbtree_##name##_t *b, const key_t * __restrict k) \
 	{																	\
 		kbnode_t *r, *s;												\
 		++b->n_keys;													\
@@ -216,7 +209,7 @@ typedef struct {
 			__kb_split_##name(b, s, 0, r);								\
 			r = s;														\
 		}																\
-		__kb_putp_aux_##name(b, r, k);									\
+		return __kb_putp_aux_##name(b, r, k);							\
 	}																	\
 	static inline void kb_put_##name(kbtree_##name##_t *b, const key_t k) \
 	{																	\
@@ -324,6 +317,85 @@ typedef struct {
 		return kb_delp_##name(b, &k);									\
 	}
 
+#define kb_itr_key(type, itr) __KB_KEY(type, (itr)->p->x)[(itr)->p->i]
+
+#define __KB_ITR(name, key_t) \
+	static inline void kb_itr_first_##name(kbtree_##name##_t *b, kbitr_t *itr) \
+	{ \
+		itr->p = itr->stack; \
+		itr->p->x = b->root; itr->p->i = 0; \
+		while (itr->p->x->is_internal && __KB_PTR(b, itr->p->x)[0] != 0) { \
+			kbnode_t *x = itr->p->x; \
+			++itr->p; \
+			itr->p->x = __KB_PTR(b, x)[0]; itr->p->i = 0; \
+		} \
+	} \
+	static int kb_itr_get_##name(kbtree_##name##_t *b, const key_t * __restrict k, kbitr_t *itr) \
+	{ \
+		int i, r = 0; \
+		itr->p = itr->stack; \
+		itr->p->x = b->root; itr->p->i = 0; \
+		while (itr->p->x) { \
+			i = __kb_getp_aux_##name(itr->p->x, k, &r); \
+			if (i >= 0 && r == 0) return 0; \
+			if (itr->p->x->is_internal == 0) return -1; \
+			itr->p[1].x = __KB_PTR(b, itr->p->x)[i + 1]; \
+			itr->p[1].i = i; \
+			++itr->p; \
+		} \
+		return -1; \
+	} \
+	static inline int kb_itr_next_##name(kbtree_##name##_t *b, kbitr_t *itr) \
+	{ \
+		if (itr->p < itr->stack) return 0; \
+		for (;;) { \
+			++itr->p->i; \
+			while (itr->p->x && itr->p->i <= itr->p->x->n) { \
+				itr->p[1].i = 0; \
+				itr->p[1].x = itr->p->x->is_internal? __KB_PTR(b, itr->p->x)[itr->p->i] : 0; \
+				++itr->p; \
+			} \
+			--itr->p; \
+			if (itr->p < itr->stack) return 0; \
+			if (itr->p->x && itr->p->i < itr->p->x->n) return 1; \
+		} \
+	}
+
+#define KBTREE_INIT(name, key_t, __cmp)			\
+	__KB_TREE_T(name)							\
+	__KB_INIT(name, key_t)						\
+	__KB_GET_AUX1(name, key_t, __cmp)			\
+	__KB_GET(name, key_t)						\
+	__KB_INTERVAL(name, key_t)					\
+	__KB_PUT(name, key_t, __cmp)				\
+	__KB_DEL(name, key_t) \
+	__KB_ITR(name, key_t)
+
+#define KB_DEFAULT_SIZE 512
+
+#define kbtree_t(name) kbtree_##name##_t
+#define kb_init(name, s) kb_init_##name(s)
+#define kb_destroy(name, b) __kb_destroy(b)
+#define kb_get(name, b, k) kb_get_##name(b, k)
+#define kb_put(name, b, k) kb_put_##name(b, k)
+#define kb_del(name, b, k) kb_del_##name(b, k)
+#define kb_interval(name, b, k, l, u) kb_interval_##name(b, k, l, u)
+#define kb_getp(name, b, k) kb_getp_##name(b, k)
+#define kb_putp(name, b, k) kb_putp_##name(b, k)
+#define kb_delp(name, b, k) kb_delp_##name(b, k)
+#define kb_intervalp(name, b, k, l, u) kb_intervalp_##name(b, k, l, u)
+
+#define kb_itr_first(name, b, i) kb_itr_first_##name(b, i)
+#define kb_itr_get(name, b, k, i) kb_itr_get_##name(b, k, i)
+#define kb_itr_next(name, b, i) kb_itr_next_##name(b, i)
+
+#define kb_size(b) ((b)->n_keys)
+
+#define kb_generic_cmp(a, b) (((b) < (a)) - ((a) < (b)))
+#define kb_str_cmp(a, b) strcmp(a, b)
+
+/* The following is *DEPRECATED*!!! Use the iterator interface instead! */
+
 typedef struct {
 	kbnode_t *x;
 	int i;
@@ -352,33 +424,5 @@ typedef struct {
 		}																\
 		free(__kstack);													\
 	} while (0)
-
-#define KBTREE_INIT(name, key_t, __cmp)			\
-	__KB_TREE_T(name)							\
-	__KB_INIT(name, key_t)						\
-	__KB_GET_AUX1(name, key_t, __cmp)			\
-	__KB_GET(name, key_t)						\
-	__KB_INTERVAL(name, key_t)					\
-	__KB_PUT(name, key_t, __cmp)				\
-	__KB_DEL(name, key_t)
-
-#define KB_DEFAULT_SIZE 512
-
-#define kbtree_t(name) kbtree_##name##_t
-#define kb_init(name, s) kb_init_##name(s)
-#define kb_destroy(name, b) __kb_destroy(b)
-#define kb_get(name, b, k) kb_get_##name(b, k)
-#define kb_put(name, b, k) kb_put_##name(b, k)
-#define kb_del(name, b, k) kb_del_##name(b, k)
-#define kb_interval(name, b, k, l, u) kb_interval_##name(b, k, l, u)
-#define kb_getp(name, b, k) kb_getp_##name(b, k)
-#define kb_putp(name, b, k) kb_putp_##name(b, k)
-#define kb_delp(name, b, k) kb_delp_##name(b, k)
-#define kb_intervalp(name, b, k, l, u) kb_intervalp_##name(b, k, l, u)
-
-#define kb_size(b) ((b)->n_keys)
-
-#define kb_generic_cmp(a, b) (((b) < (a)) - ((a) < (b)))
-#define kb_str_cmp(a, b) strcmp(a, b)
 
 #endif
