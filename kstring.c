@@ -105,6 +105,26 @@ int ksplit_core(char *s, int delimiter, int *_max, int **_offsets)
 	return n;
 }
 
+int kgetline(kstring_t *s, kgets_func *fgets_fn, void *fp)
+{
+	size_t l0 = s->l;
+
+	while (s->l == l0 || s->s[s->l-1] != '\n') {
+		if (s->m - s->l < 200) ks_resize(s, s->m + 200);
+		if (fgets_fn(s->s + s->l, s->m - s->l, fp) == NULL) break;
+		s->l += strlen(s->s + s->l);
+	}
+
+	if (s->l == l0) return EOF;
+
+	if (s->l > l0 && s->s[s->l-1] == '\n') {
+		s->l--;
+		if (s->l > l0 && s->s[s->l-1] == '\r') s->l--;
+	}
+	s->s[s->l] = '\0';
+	return 0;
+}
+
 /**********************
  * Boyer-Moore search *
  **********************/
