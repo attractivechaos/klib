@@ -23,6 +23,7 @@ contents.xcworkspacedata
 ._*
 
 # Test byproducts
+test/kbitset_test
 test/kbtree_test
 test/khash_keith
 test/khash_keith2

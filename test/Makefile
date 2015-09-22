@@ -4,7 +4,7 @@ CFLAGS=-g -Wall -O2 -I..
 CXXFLAGS=$(CFLAGS)
 PROGS=kbtree_test khash_keith khash_keith2 khash_test klist_test kseq_test kseq_bench \
 		kseq_bench2 ksort_test ksort_test-stl kvec_test kmin_test kstring_bench kstring_bench2 kstring_test \
-		kthread_test2
+		kthread_test2 kbitset_test
 
 all:$(PROGS)
 
@@ -61,6 +61,9 @@ kthread_test:kthread_test.c ../kthread.c
 
 kthread_test2:kthread_test2.c ../kthread.c
 		$(CC) $(CFLAGS) -o $@ kthread_test2.c ../kthread.c
+
+kbitset_test:kbitset_test.c ../kbitset.h
+		$(CC) $(CFLAGS) -o $@ kbitset_test.c
 
 ketopt_test:ketopt_test.c ../ketopt.h
 		$(CC) $(CFLAGS) -o $@ ketopt_test.c
