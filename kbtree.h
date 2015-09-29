@@ -427,4 +427,11 @@ typedef struct {
 		free(__kstack);													\
 	} while (0)
 
+#define __kb_get_first(key_t, b, ret) do {	\
+		kbnode_t *__x = (b)->root;			\
+		while (__KB_PTR(b, __x)[0] != 0)	\
+			__x = __KB_PTR(b, __x)[0];		\
+		(ret) = __KB_KEY(key_t, __x)[0];	\
+	} while (0)
+
 #endif
