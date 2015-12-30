@@ -419,7 +419,7 @@ static kh_inline khint_t __ac_Wang_hash(khint_t key)
     key ^=  (key >> 16);
     return key;
 }
-#define kh_int_hash_func2(k) __ac_Wang_hash((khint_t)key)
+#define kh_int_hash_func2(key) __ac_Wang_hash((khint_t)key)
 
 /* --- END OF HASH FUNCTIONS --- */
 
