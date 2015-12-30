@@ -21,6 +21,7 @@ extern "C" {
 
 	krand_t *kr_srand(krint64_t seed);
 	krint64_t kr_rand(krand_t *kr);
+	double kr_normal(krand_t *kr);
 
 	/**************************
 	 * Non-linear programming *

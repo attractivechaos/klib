@@ -22,7 +22,8 @@
 #define KR_LM 0x7FFFFFFFULL /* Least significant 31 bits */
 
 struct _krand_t {
-	int mti;
+	int mti, n_iset;
+	double n_gset;
 	krint64_t mt[KR_NN];
 };
 
@@ -36,7 +37,7 @@ static void kr_srand0(krint64_t seed, krand_t *kr)
 krand_t *kr_srand(krint64_t seed)
 {
 	krand_t *kr;
-	kr = malloc(sizeof(krand_t));
+	kr = (krand_t*)calloc(1, sizeof(krand_t));
 	kr_srand0(seed, kr);
 	return kr;
 }
@@ -66,6 +67,25 @@ krint64_t kr_rand(krand_t *kr)
     x ^= (x << 37) & 0xFFF7EEE000000000ULL;
     x ^= (x >> 43);
     return x;
+}
+
+double kr_normal(krand_t *kr)
+{ 
+	if (kr->n_iset == 0) {
+		double fac, rsq, v1, v2; 
+		do { 
+			v1 = 2.0 * kr_drand(kr) - 1.0;
+			v2 = 2.0 * kr_drand(kr) - 1.0; 
+			rsq = v1 * v1 + v2 * v2;
+		} while (rsq >= 1.0 || rsq == 0.0);
+		fac = sqrt(-2.0 * log(rsq) / rsq); 
+		kr->n_gset = v1 * fac; 
+		kr->n_iset = 1;
+		return v2 * fac;
+	} else {
+		kr->n_iset = 0;
+		return kr->n_gset;
+	}
 }
 
 #ifdef _KR_MAIN
