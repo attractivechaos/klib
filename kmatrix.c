@@ -11,43 +11,38 @@ struct _kmatrix_data_t
 };                                  
 
 
-kmatrix_t km_clear( kmatrix_t matrix )
-{
-  if( matrix == NULL ) return NULL;
-
-  memset( matrix->data, 0, matrix->n_rows * matrix->n_cols * sizeof(double) );
-
-  return matrix;
-}
-
-kmatrix_t km_create( double* data, size_t n_rows, size_t n_cols )
+kmatrix_t km_create( size_t n_rows, size_t n_cols, double* data )
 {
   if( n_rows > KMATRIX_SIZE_MAX || n_cols > KMATRIX_SIZE_MAX ) return NULL;
 
-  kmatrix_t new_matrix_t = (kmatrix_t) malloc( sizeof(kmatrix_data_t) );
+  kmatrix_t new_matrix = (kmatrix_t) malloc( sizeof(kmatrix_data_t) );
 
-  new_matrix_t->data = (double*) calloc( n_rows * n_cols, sizeof(double) );
+  new_matrix->data = (double*) calloc( n_rows * n_cols, sizeof(double) );
 
-  new_matrix_t->n_rows = n_rows;
-  new_matrix_t->n_cols = n_cols;
+  new_matrix->n_rows = n_rows;
+  new_matrix->n_cols = n_cols;
 
-  if( data == NULL ) km_clear( new_matrix_t );
-  else memcpy( new_matrix_t->data, data, n_rows * n_cols * sizeof(double) );
+  km_fill( new_matrix, data );
 
-  return new_matrix_t;
+  return new_matrix;
 }
 
-kmatrix_t km_create_square( size_t size, uint8_t isIdentity )
+kmatrix_t km_create_square( size_t size, double d_value )
 {
-  kmatrix_t new_sq_matrix = km_create( NULL, size, size );
+  kmatrix_t new_sq_matrix = km_create( size, size, NULL );
 
-  if( isIdentity )
-  {
-    for( size_t line = 0; line < size; line++ )
-      new_sq_matrix->data[ line * size + line ] = 1.0;
-  }
+  for( size_t line = 0; line < size; line++ )
+    new_sq_matrix->data[ line * size + line ] = d_value;
 
   return new_sq_matrix;
+}
+
+void km_fill( kmatrix_t matrix, double* data )
+{
+  if( matrix == NULL ) return;
+
+  if( data == NULL ) memset( matrix->data, 0, matrix->n_rows * matrix->n_cols * sizeof(double) );
+  else memcpy( matrix->data, data, matrix->n_rows * matrix->n_cols * sizeof(double) );
 }
 
 void km_free( kmatrix_t matrix )
@@ -62,7 +57,7 @@ void km_free( kmatrix_t matrix )
 kmatrix_t km_resize( kmatrix_t matrix, size_t n_rows, size_t n_cols )
 {
   if( matrix == NULL )
-    matrix = km_create( NULL, n_rows, n_cols );
+    matrix = km_create( n_rows, n_cols, NULL );
   else if( matrix->n_rows * matrix->n_cols < n_rows * n_cols )
     matrix->data = (double*) realloc( matrix->data, n_rows * n_cols * sizeof(double) );
   
@@ -72,7 +67,7 @@ kmatrix_t km_resize( kmatrix_t matrix, size_t n_rows, size_t n_cols )
   return matrix;
 }
 
-double km_get( kmatrix_t matrix, size_t row, size_t col )
+double km_get_at( kmatrix_t matrix, size_t row, size_t col )
 {
   if( matrix == NULL ) return 0.0;
 
@@ -81,14 +76,7 @@ double km_get( kmatrix_t matrix, size_t row, size_t col )
   return matrix->data[ row * matrix->n_cols + col ];
 }
 
-double* km_to_array( kmatrix_t matrix )
-{
-  if( matrix == NULL ) return NULL;
-
-  return matrix->data;
-}
-
-void km_set( kmatrix_t matrix, size_t row, size_t col, double value )
+void km_set_at( kmatrix_t matrix, size_t row, size_t col, double value )
 {
   if( matrix == NULL ) return;
 
@@ -159,9 +147,9 @@ kmatrix_t km_dot( kmatrix_t matrix_1, uint8_t transpose_1, kmatrix_t matrix_2, u
       aux_array[ row * result->n_cols + col ] = 0.0;
       for( size_t i = 0; i < n_ops; i++ )
       {
-        size_t elementIndex_1 = transpose_1 ? i * matrix_1->n_cols + row : row * matrix_1->n_cols + i;
-        size_t elementIndex_2 = transpose_2 ? col * matrix_2->n_cols + i : i * matrix_2->n_cols + col;
-        aux_array[ row * result->n_cols + col ] += matrix_1->data[ elementIndex_1 ] * matrix_2->data[ elementIndex_2 ];
+        size_t index_1 = transpose_1 ? i * matrix_1->n_cols + row : row * matrix_1->n_cols + i;
+        size_t index_2 = transpose_2 ? col * matrix_2->n_cols + i : i * matrix_2->n_cols + col;
+        aux_array[ row * result->n_cols + col ] += matrix_1->data[ index_1 ] * matrix_2->data[ index_2 ];
       }
     }
   }
