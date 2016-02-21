@@ -54,17 +54,23 @@ void km_free( kmatrix_t matrix )
   free( matrix );
 }
 
-kmatrix_t km_resize( kmatrix_t matrix, size_t n_rows, size_t n_cols )
+const double tolerance = 0.0001;
+bool km_equal( kmatrix_t matrix_1, kmatrix_t matrix_2 )
 {
-  if( matrix == NULL )
-    matrix = km_create( n_rows, n_cols, NULL );
-  else if( matrix->n_rows * matrix->n_cols < n_rows * n_cols )
-    matrix->data = (double*) realloc( matrix->data, n_rows * n_cols * sizeof(double) );
+  if( matrix_1->n_rows != matrix_2->n_rows ) return false;
+  if( matrix_1->n_cols != matrix_2->n_cols ) return false;
   
-  matrix->n_rows = n_rows;
-  matrix->n_cols = n_cols;
-
-  return matrix;
+  for( size_t row = 0; row < matrix_1->n_rows; row++ )
+  {
+    for( size_t col = 0; col < matrix_1->n_cols; col++ )
+    {
+      double diff = matrix_1->data[ row * matrix_1->n_cols + col ] - matrix_2->data[ row * matrix_2->n_cols + col ];
+      
+      if( fabs( diff ) > tolerance ) return false;
+    }
+  }
+  
+  return true;
 }
 
 double km_get_at( kmatrix_t matrix, size_t row, size_t col )
@@ -85,11 +91,33 @@ void km_set_at( kmatrix_t matrix, size_t row, size_t col, double value )
   matrix->data[ row * matrix->n_cols + col ] = value;
 }
 
+kmatrix_t resize_matrix( kmatrix_t matrix, size_t n_rows, size_t n_cols )
+{
+  if( matrix == NULL )
+    matrix = km_create( n_rows, n_cols, NULL );
+  else if( matrix->n_rows * matrix->n_cols < n_rows * n_cols )
+    matrix->data = (double*) realloc( matrix->data, n_rows * n_cols * sizeof(double) );
+  
+  matrix->n_rows = n_rows;
+  matrix->n_cols = n_cols;
+
+  return matrix;
+}
+
+kmatrix_t km_reshape( kmatrix_t matrix, size_t n_rows, size_t n_cols, kmatrix_t result )
+{
+  if( (result = resize_matrix( result, n_rows, n_cols )) == NULL ) return NULL;
+  
+  if( matrix != NULL ) memcpy( result->data, matrix->data, matrix->n_rows * matrix->n_cols * sizeof(double) );
+  
+  return result;
+}
+
 kmatrix_t km_scale( kmatrix_t matrix, double scalar, kmatrix_t result )
 {
   if( matrix == NULL ) return NULL;
   
-  if( (result = km_resize( result, matrix->n_rows, matrix->n_cols )) == NULL ) return NULL;
+  if( (result = resize_matrix( result, matrix->n_rows, matrix->n_cols )) == NULL ) return NULL;
 
   for( size_t row = 0; row < matrix->n_rows; row++ )
   {
@@ -108,7 +136,7 @@ kmatrix_t km_sum( kmatrix_t matrix_1, double weight_1, kmatrix_t matrix_2, doubl
 
   if( matrix_1->n_rows != matrix_2->n_rows || matrix_1->n_cols != matrix_2->n_cols ) return NULL;
 
-  if( (result = km_resize( result, matrix_1->n_rows, matrix_1->n_cols )) == NULL ) return NULL;
+  if( (result = resize_matrix( result, matrix_1->n_rows, matrix_1->n_cols )) == NULL ) return NULL;
 
   for( size_t row = 0; row < result->n_rows; row++ )
   {
@@ -125,20 +153,20 @@ kmatrix_t km_sum( kmatrix_t matrix_1, double weight_1, kmatrix_t matrix_2, doubl
   return result;
 }
 
-kmatrix_t km_dot( kmatrix_t matrix_1, uint8_t transpose_1, kmatrix_t matrix_2, uint8_t transpose_2, kmatrix_t result )
+kmatrix_t km_dot( kmatrix_t matrix_1, bool trans_1, kmatrix_t matrix_2, bool trans_2, kmatrix_t result )
 {
   static double aux_array[ KMATRIX_SIZE_MAX * KMATRIX_SIZE_MAX ];
 
   if( matrix_1 == NULL || matrix_2 == NULL ) return NULL;
 
-  size_t n_ops = transpose_1 ? matrix_1->n_rows : matrix_1->n_cols;
+  size_t n_ops = trans_1 ? matrix_1->n_rows : matrix_1->n_cols;
   
-  if( n_ops != ( transpose_2 ? matrix_2->n_cols : matrix_2->n_rows ) ) return NULL;
+  if( n_ops != ( trans_2 ? matrix_2->n_cols : matrix_2->n_rows ) ) return NULL;
   
-  size_t result_n_rows = transpose_1 ? matrix_1->n_cols : matrix_1->n_rows;
-  size_t result_n_cols = transpose_2 ? matrix_2->n_rows : matrix_2->n_cols;
+  size_t result_n_rows = trans_1 ? matrix_1->n_cols : matrix_1->n_rows;
+  size_t result_n_cols = trans_2 ? matrix_2->n_rows : matrix_2->n_cols;
 
-  if( (result = km_resize( result, result_n_rows, result_n_cols )) == NULL ) return NULL;
+  if( (result = resize_matrix( result, result_n_rows, result_n_cols )) == NULL ) return NULL;
 
   for( size_t row = 0; row < result->n_rows; row++ )
   {
@@ -147,8 +175,8 @@ kmatrix_t km_dot( kmatrix_t matrix_1, uint8_t transpose_1, kmatrix_t matrix_2, u
       aux_array[ row * result->n_cols + col ] = 0.0;
       for( size_t i = 0; i < n_ops; i++ )
       {
-        size_t index_1 = transpose_1 ? i * matrix_1->n_cols + row : row * matrix_1->n_cols + i;
-        size_t index_2 = transpose_2 ? col * matrix_2->n_cols + i : i * matrix_2->n_cols + col;
+        size_t index_1 = trans_1 ? i * matrix_1->n_cols + row : row * matrix_1->n_cols + i;
+        size_t index_2 = trans_2 ? col * matrix_2->n_cols + i : i * matrix_2->n_cols + col;
         aux_array[ row * result->n_cols + col ] += matrix_1->data[ index_1 ] * matrix_2->data[ index_2 ];
       }
     }
@@ -159,23 +187,23 @@ kmatrix_t km_dot( kmatrix_t matrix_1, uint8_t transpose_1, kmatrix_t matrix_2, u
   return result;
 }
 
-void get_cof_array( double* m_array, size_t size, size_t elementRow, size_t elementColumn, double* result )
+void get_cof_array( double* m_array, size_t size, size_t cof_row, size_t cof_col, double* result )
 {
-  size_t cof_row = 0, cof_col = 0;
-  size_t cof_size = size - 1;
+  size_t sub_row = 0, sub_col = 0;
+  size_t sub_size = size - 1;
   for( size_t row = 0; row < size; row++ )
   {
     for( size_t col = 0; col < size; col++ )
     {
-      if( row != elementRow && col != elementColumn )
+      if( row != cof_row && col != cof_col )
       {
-        result[ cof_row * cof_size + cof_col ] = m_array[ row * size + col ];
+        result[ sub_row * sub_size + sub_col ] = m_array[ row * size + col ];
 
-        if( cof_col < cof_size - 1 ) cof_col++;
+        if( sub_col < sub_size - 1 ) sub_col++;
         else
         {
-          cof_col = 0;
-          cof_row++;
+          sub_col = 0;
+          sub_row++;
         }
       }
     }
@@ -224,12 +252,12 @@ kmatrix_t km_trans( kmatrix_t matrix, kmatrix_t result )
 
   if( matrix == NULL ) return NULL;
 
-  if( (result = km_resize( result, matrix->n_cols, matrix->n_rows )) == NULL ) return NULL;
+  if( (result = resize_matrix( result, matrix->n_cols, matrix->n_rows )) == NULL ) return NULL;
 
   for( size_t row = 0; row < result->n_rows; row++ )
   {
     for( size_t col = 0; col < result->n_cols; col++ )
-      aux_array[ row * matrix->n_cols + col ] = matrix->data[ col * matrix->n_cols + row ];
+      aux_array[ row * result->n_cols + col ] = matrix->data[ col * matrix->n_cols + row ];
   }
 
   memcpy( result->data, aux_array, result->n_rows * result->n_cols * sizeof(double) );
@@ -241,16 +269,16 @@ kmatrix_t km_inv( kmatrix_t matrix, kmatrix_t result )
 {
   static double aux_array[ KMATRIX_SIZE_MAX * KMATRIX_SIZE_MAX ];
 
-  double determinant = km_det( matrix );
+  double det = km_det( matrix );
 
-  if( determinant == 0.0 ) return NULL;
+  if( det == 0.0 ) return NULL;
 
-  if( (result = km_resize( result, matrix->n_cols, matrix->n_rows )) == NULL ) return NULL;
+  if( (result = resize_matrix( result, matrix->n_cols, matrix->n_rows )) == NULL ) return NULL;
 
   for( size_t row = 0; row < result->n_rows; row++ )
   {
     for( size_t col = 0; col < result->n_cols; col++ )
-      aux_array[ row * matrix->n_cols + col ] = get_array_cof( matrix->data, result->n_rows, col, row ) / determinant;
+      aux_array[ row * matrix->n_cols + col ] = get_array_cof( matrix->data, result->n_rows, col, row ) / det;
   }
 
   memcpy( result->data, aux_array, result->n_rows * result->n_cols * sizeof(double) );

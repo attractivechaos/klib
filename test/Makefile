@@ -4,7 +4,7 @@ CFLAGS=-g -Wall -O2 -I..
 CXXFLAGS=$(CFLAGS)
 PROGS=kbtree_test khash_keith khash_keith2 khash_test klist_test kseq_test kseq_bench \
 		kseq_bench2 ksort_test ksort_test-stl kvec_test kmin_test kstring_bench kstring_bench2 kstring_test \
-		kthread_test2
+		kthread_test2 kmatrix_test
 
 all:$(PROGS)
 
@@ -45,7 +45,7 @@ kvec_test:kvec_test.cc ../kvec.h
 		$(CXX) $(CXXFLAGS) -o $@ kvec_test.cc
 
 kmin_test:kmin_test.c ../kmath.h ../kmath.c
-		$(CC) $(CFLAGS) -o $@ kmin_test.c ../kmath.c
+		$(CC) $(CFLAGS) -o $@ kmin_test.c ../kmath.c -lm
 
 kstring_bench:kstring_bench.c ../kstring.h ../kstring.c
 		$(CC) $(CFLAGS) -o $@ kstring_bench.c ../kstring.c
@@ -60,4 +60,7 @@ kthread_test:kthread_test.c ../kthread.c
 		$(CC) $(CFLAGS) -fopenmp -o $@ kthread_test.c ../kthread.c
 
 kthread_test2:kthread_test2.c ../kthread.c
-		$(CC) $(CFLAGS) -o $@ kthread_test2.c ../kthread.c
+		$(CC) $(CFLAGS) -o $@ kthread_test2.c ../kthread.c -lpthread
+		
+kmatrix_test:kmatrix_test.c ../kmatrix.h ../kmatrix.c
+		$(CC) $(CFLAGS) -o $@ kmatrix_test.c ../kmatrix.c -lm
