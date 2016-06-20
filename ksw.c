@@ -28,6 +28,8 @@
 #include <assert.h>
 #ifdef __PPC64__
 #include "vec128int.h"
+#else
+#include <emmintrin.h>
 #endif
 #include "ksw.h"
 
