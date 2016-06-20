@@ -25,8 +25,15 @@
 
 #include <stdlib.h>
 #include <stdint.h>
-#include <emmintrin.h>
+#include <assert.h>
+#ifdef __PPC64__
+#include "vec128int.h"
+#endif
 #include "ksw.h"
+
+#ifdef USE_MALLOC_WRAPPERS
+#  include "malloc_wrap.h"
+#endif
 
 #ifdef __GNUC__
 #define LIKELY(x) __builtin_expect((x),1)
@@ -103,43 +110,118 @@ kswq_t *ksw_qinit(int size, int qlen, const uint8_t *query, int m, const int8_t 
 	return q;
 }
 
-kswr_t ksw_u8(kswq_t *q, int tlen, const uint8_t *target, int _gapo, int _gape, int xtra) // the first gap costs -(_o+_e)
+kswr_t ksw_u8(kswq_t *q, int tlen, const uint8_t *target, int _o_del, int _e_del, int _o_ins, int _e_ins, int xtra) // the first gap costs -(_o+_e)
 {
 	int slen, i, m_b, n_b, te = -1, gmax = 0, minsc, endsc;
 	uint64_t *b;
-	__m128i zero, gapoe, gape, shift, *H0, *H1, *E, *Hmax;
+	__m128i zero, oe_del, e_del, oe_ins, e_ins, shift, *H0, *H1, *E, *Hmax;
 	kswr_t r;
 
+#ifdef __PPC64__
 #define __max_16(ret, xx) do { \
-		(xx) = _mm_max_epu8((xx), _mm_srli_si128((xx), 8)); \
-		(xx) = _mm_max_epu8((xx), _mm_srli_si128((xx), 4)); \
-		(xx) = _mm_max_epu8((xx), _mm_srli_si128((xx), 2)); \
-		(xx) = _mm_max_epu8((xx), _mm_srli_si128((xx), 1)); \
-    	(ret) = _mm_extract_epi16((xx), 0) & 0x00ff; \
-	} while (0)
+                (xx) = vec_max16ub((xx), vec_shiftrightbytes1q((xx), 8)); \
+                (xx) = vec_max16ub((xx), vec_shiftrightbytes1q((xx), 4)); \
+                (xx) = vec_max16ub((xx), vec_shiftrightbytes1q((xx), 2)); \
+                (xx) = vec_max16ub((xx), vec_shiftrightbytes1q((xx), 1)); \
+        (ret) = vec_extract8sh((xx), 0) & 0x00ff; \
+        } while (0)
+#else
+#define __max_16(ret, xx) do { \
+                (xx) = _mm_max_epu8((xx), _mm_srli_si128((xx), 8)); \
+                (xx) = _mm_max_epu8((xx), _mm_srli_si128((xx), 4)); \
+                (xx) = _mm_max_epu8((xx), _mm_srli_si128((xx), 2)); \
+                (xx) = _mm_max_epu8((xx), _mm_srli_si128((xx), 1)); \
+        (ret) = _mm_extract_epi16((xx), 0) & 0x00ff; \
+        } while (0)
+#endif
 
 	// initialization
 	r = g_defr;
 	minsc = (xtra&KSW_XSUBO)? xtra&0xffff : 0x10000;
 	endsc = (xtra&KSW_XSTOP)? xtra&0xffff : 0x10000;
 	m_b = n_b = 0; b = 0;
-	zero = _mm_set1_epi32(0);
-	gapoe = _mm_set1_epi8(_gapo + _gape);
-	gape = _mm_set1_epi8(_gape);
+#ifdef __PPC64__
+	zero = vec_splat4sw(0);
+#else
+	zero = _mm_set1_epi32(0);    /* !!!REP NOT FOUND!!! */ 
+#endif
+#ifdef __PPC64__
+	oe_del = vec_splat16sb(_o_del + _e_del);
+#else
+	oe_del = _mm_set1_epi8(_o_del + _e_del);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+	e_del = vec_splat16sb(_e_del);
+#else
+	e_del = _mm_set1_epi8(_e_del);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+	oe_ins = vec_splat16sb(_o_ins + _e_ins);
+#else
+	oe_ins = _mm_set1_epi8(_o_ins + _e_ins);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+	e_ins = vec_splat16sb(_e_ins);
+#else
+	e_ins = _mm_set1_epi8(_e_ins);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+	shift = vec_splat16sb(q->shift);
+#else
 	shift = _mm_set1_epi8(q->shift);
+   /* NEED INSPECTION */ 
+#endif
 	H0 = q->H0; H1 = q->H1; E = q->E; Hmax = q->Hmax;
 	slen = q->slen;
 	for (i = 0; i < slen; ++i) {
+#ifdef __PPC64__
+		vec_store1q(E + i, zero);
+#else
 		_mm_store_si128(E + i, zero);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+		vec_store1q(H0 + i, zero);
+#else
 		_mm_store_si128(H0 + i, zero);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+		vec_store1q(Hmax + i, zero);
+#else
 		_mm_store_si128(Hmax + i, zero);
+   /* NEED INSPECTION */ 
+#endif
 	}
 	// the core loop
 	for (i = 0; i < tlen; ++i) {
 		int j, k, cmp, imax;
-		__m128i e, h, f = zero, max = zero, *S = q->qp + target[i] * slen; // s is the 1st score vector
+		__m128i e, h, t, f = zero, max = zero, *S = q->qp + target[i] * slen; // s is the 1st score vector
+#ifdef __PPC64__
+		h = vec_load1q(H0 + slen - 1); // h={2,5,8,11,14,17,-1,-1} in the above example
+#else
 		h = _mm_load_si128(H0 + slen - 1); // h={2,5,8,11,14,17,-1,-1} in the above example
-		h = _mm_slli_si128(h, 1); // h=H(i-1,-1); << instead of >> because x64 is little-endian
+   /* NEED INSPECTION */ 
+#endif
+		#ifdef __BIG_ENDIAN__
+#ifdef __PPC64__
+			h = vec_shiftrightbytes1q(h, 1);	
+#else
+			h = _mm_srli_si128(h, 1);	
+   /* NEED INSPECTION */ 
+#endif
+		#else
+#ifdef __PPC64__
+			h = vec_shiftleftbytes1q(h, 1); // h=H(i-1,-1); << instead of >> because x64 is little-endian
+#else
+			h = _mm_slli_si128(h, 1); // h=H(i-1,-1); << instead of >> because x64 is little-endian
+   /* NEED INSPECTION */ 
+#endif
+		#endif
 		for (j = 0; LIKELY(j < slen); ++j) {
 			/* SW cells are computed in the following order:
 			 *   H(i,j)   = max{H(i-1,j-1)+S(i,j), E(i,j), F(i,j)}
@@ -147,34 +229,154 @@ kswr_t ksw_u8(kswq_t *q, int tlen, const uint8_t *target, int _gapo, int _gape, 
 			 *   F(i,j+1) = max{H(i,j)-q, F(i,j)-r}
 			 */
 			// compute H'(i,j); note that at the beginning, h=H'(i-1,j-1)
+#ifdef __PPC64__
+			h = vec_addsaturating16ub(h, vec_load1q(S + j));
+#else
 			h = _mm_adds_epu8(h, _mm_load_si128(S + j));
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			h = vec_subtractsaturating16ub(h, shift); // h=H'(i-1,j-1)+S(i,j)
+#else
 			h = _mm_subs_epu8(h, shift); // h=H'(i-1,j-1)+S(i,j)
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			e = vec_load1q(E + j); // e=E'(i,j)
+#else
 			e = _mm_load_si128(E + j); // e=E'(i,j)
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			h = vec_max16ub(h, e);
+#else
 			h = _mm_max_epu8(h, e);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			h = vec_max16ub(h, f); // h=H'(i,j)
+#else
 			h = _mm_max_epu8(h, f); // h=H'(i,j)
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			max = vec_max16ub(max, h); // set max
+#else
 			max = _mm_max_epu8(max, h); // set max
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			vec_store1q(H1 + j, h); // save to H'(i,j)
+#else
 			_mm_store_si128(H1 + j, h); // save to H'(i,j)
+   /* NEED INSPECTION */ 
+#endif
 			// now compute E'(i+1,j)
-			h = _mm_subs_epu8(h, gapoe); // h=H'(i,j)-gapo
-			e = _mm_subs_epu8(e, gape); // e=E'(i,j)-gape
-			e = _mm_max_epu8(e, h); // e=E'(i+1,j)
+#ifdef __PPC64__
+			e = vec_subtractsaturating16ub(e, e_del); // e=E'(i,j) - e_del
+#else
+			e = _mm_subs_epu8(e, e_del); // e=E'(i,j) - e_del
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			t = vec_subtractsaturating16ub(h, oe_del); // h=H'(i,j) - o_del - e_del
+#else
+			t = _mm_subs_epu8(h, oe_del); // h=H'(i,j) - o_del - e_del
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			e = vec_max16ub(e, t); // e=E'(i+1,j)
+#else
+			e = _mm_max_epu8(e, t); // e=E'(i+1,j)
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			vec_store1q(E + j, e); // save to E'(i+1,j)
+#else
 			_mm_store_si128(E + j, e); // save to E'(i+1,j)
+   /* NEED INSPECTION */ 
+#endif
 			// now compute F'(i,j+1)
-			f = _mm_subs_epu8(f, gape);
-			f = _mm_max_epu8(f, h);
+#ifdef __PPC64__
+			f = vec_subtractsaturating16ub(f, e_ins);
+#else
+			f = _mm_subs_epu8(f, e_ins);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			t = vec_subtractsaturating16ub(h, oe_ins); // h=H'(i,j) - o_ins - e_ins
+#else
+			t = _mm_subs_epu8(h, oe_ins); // h=H'(i,j) - o_ins - e_ins
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			f = vec_max16ub(f, t);
+#else
+			f = _mm_max_epu8(f, t);
+   /* NEED INSPECTION */ 
+#endif
 			// get H'(i-1,j) and prepare for the next j
+#ifdef __PPC64__
+			h = vec_load1q(H0 + j); // h=H'(i-1,j)
+#else
 			h = _mm_load_si128(H0 + j); // h=H'(i-1,j)
+   /* NEED INSPECTION */ 
+#endif
 		}
 		// NB: we do not need to set E(i,j) as we disallow adjecent insertion and then deletion
 		for (k = 0; LIKELY(k < 16); ++k) { // this block mimics SWPS3; NB: H(i,j) updated in the lazy-F loop cannot exceed max
-			f = _mm_slli_si128(f, 1);
+			#ifdef __BIG_ENDIAN__
+#ifdef __PPC64__
+				f = vec_shiftrightbytes1q(f, 1);
+#else
+				f = _mm_srli_si128(f, 1);
+   /* NEED INSPECTION */ 
+#endif
+			#else
+#ifdef __PPC64__
+				f = vec_shiftleftbytes1q(f, 1);
+#else
+				f = _mm_slli_si128(f, 1);
+   /* NEED INSPECTION */ 
+#endif
+			#endif
 			for (j = 0; LIKELY(j < slen); ++j) {
+#ifdef __PPC64__
+				h = vec_load1q(H1 + j);
+#else
 				h = _mm_load_si128(H1 + j);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+				h = vec_max16ub(h, f); // h=H'(i,j)
+#else
 				h = _mm_max_epu8(h, f); // h=H'(i,j)
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+				vec_store1q(H1 + j, h);
+#else
 				_mm_store_si128(H1 + j, h);
-				h = _mm_subs_epu8(h, gapoe);
-				f = _mm_subs_epu8(f, gape);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+				h = vec_subtractsaturating16ub(h, oe_ins);
+#else
+				h = _mm_subs_epu8(h, oe_ins);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+				f = vec_subtractsaturating16ub(f, e_ins);
+#else
+				f = _mm_subs_epu8(f, e_ins);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+				cmp = vec_extractupperbit16sb(vec_compareeq16sb(vec_subtractsaturating16ub(f, h), zero));
+#else
 				cmp = _mm_movemask_epi8(_mm_cmpeq_epi8(_mm_subs_epu8(f, h), zero));
+   /* NEED INSPECTION */ 
+#endif
 				if (UNLIKELY(cmp == 0xffff)) goto end_loop16;
 			}
 		}
@@ -193,7 +395,12 @@ end_loop16:
 		if (imax > gmax) {
 			gmax = imax; te = i; // te is the end position on the target
 			for (j = 0; LIKELY(j < slen); ++j) // keep the H1 vector
+#ifdef __PPC64__
+				vec_store1q(Hmax + j, vec_load1q(H1 + j));
+#else
 				_mm_store_si128(Hmax + j, _mm_load_si128(H1 + j));
+   /* NEED INSPECTION */ 
+#endif
 			if (gmax + q->shift >= 255 || gmax >= endsc) break;
 		}
 		S = H1; H1 = H0; H0 = S; // swap H0 and H1
@@ -201,10 +408,11 @@ end_loop16:
 	r.score = gmax + q->shift < 255? gmax : 255;
 	r.te = te;
 	if (r.score != 255) { // get a->qe, the end of query match; find the 2nd best score
-		int max = -1, low, high, qlen = slen * 16;
+		int max = -1, tmp, low, high, qlen = slen * 16;
 		uint8_t *t = (uint8_t*)Hmax;
 		for (i = 0; i < qlen; ++i, ++t)
 			if ((int)*t > max) max = *t, r.qe = i / 16 + i % 16 * slen;
+			else if ((int)*t == max && (tmp = i / 16 + i % 16 * slen) < r.qe) r.qe = tmp; 
 		//printf("%d,%d\n", max, gmax);
 		if (b) {
 			i = (r.score + q->max - 1) / q->max;
@@ -220,65 +428,249 @@ end_loop16:
 	return r;
 }
 
-kswr_t ksw_i16(kswq_t *q, int tlen, const uint8_t *target, int _gapo, int _gape, int xtra) // the first gap costs -(_o+_e)
+kswr_t ksw_i16(kswq_t *q, int tlen, const uint8_t *target, int _o_del, int _e_del, int _o_ins, int _e_ins, int xtra) // the first gap costs -(_o+_e)
 {
 	int slen, i, m_b, n_b, te = -1, gmax = 0, minsc, endsc;
 	uint64_t *b;
-	__m128i zero, gapoe, gape, *H0, *H1, *E, *Hmax;
+	__m128i zero, oe_del, e_del, oe_ins, e_ins, *H0, *H1, *E, *Hmax;
 	kswr_t r;
 
+#ifdef __PPC64__
 #define __max_8(ret, xx) do { \
-		(xx) = _mm_max_epi16((xx), _mm_srli_si128((xx), 8)); \
-		(xx) = _mm_max_epi16((xx), _mm_srli_si128((xx), 4)); \
-		(xx) = _mm_max_epi16((xx), _mm_srli_si128((xx), 2)); \
-    	(ret) = _mm_extract_epi16((xx), 0); \
-	} while (0)
+                (xx) = vec_max8sh((xx), vec_shiftrightbytes1q((xx), 8)); \
+                (xx) = vec_max8sh((xx), vec_shiftrightbytes1q((xx), 4)); \
+                (xx) = vec_max8sh((xx), vec_shiftrightbytes1q((xx), 2)); \
+        (ret) = vec_extract8sh((xx), 0); \
+        } while (0)
+#else
+#define __max_8(ret, xx) do { \
+                (xx) = _mm_max_epi16((xx), _mm_srli_si128((xx), 8)); \
+                (xx) = _mm_max_epi16((xx), _mm_srli_si128((xx), 4)); \
+                (xx) = _mm_max_epi16((xx), _mm_srli_si128((xx), 2)); \
+        (ret) = _mm_extract_epi16((xx), 0); \
+        } while (0)
+#endif
 
 	// initialization
 	r = g_defr;
 	minsc = (xtra&KSW_XSUBO)? xtra&0xffff : 0x10000;
 	endsc = (xtra&KSW_XSTOP)? xtra&0xffff : 0x10000;
 	m_b = n_b = 0; b = 0;
-	zero = _mm_set1_epi32(0);
-	gapoe = _mm_set1_epi16(_gapo + _gape);
-	gape = _mm_set1_epi16(_gape);
+#ifdef __PPC64__
+	zero = vec_splat4sw(0);
+#else
+	zero = _mm_set1_epi32(0);    /* !!!REP NOT FOUND!!! */ 
+#endif
+#ifdef __PPC64__
+	oe_del = vec_splat8sh(_o_del + _e_del);
+#else
+	oe_del = _mm_set1_epi16(_o_del + _e_del);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+	e_del = vec_splat8sh(_e_del);
+#else
+	e_del = _mm_set1_epi16(_e_del);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+	oe_ins = vec_splat8sh(_o_ins + _e_ins);
+#else
+	oe_ins = _mm_set1_epi16(_o_ins + _e_ins);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+	e_ins = vec_splat8sh(_e_ins);
+#else
+	e_ins = _mm_set1_epi16(_e_ins);
+   /* NEED INSPECTION */ 
+#endif
 	H0 = q->H0; H1 = q->H1; E = q->E; Hmax = q->Hmax;
 	slen = q->slen;
 	for (i = 0; i < slen; ++i) {
+#ifdef __PPC64__
+		vec_store1q(E + i, zero);
+#else
 		_mm_store_si128(E + i, zero);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+		vec_store1q(H0 + i, zero);
+#else
 		_mm_store_si128(H0 + i, zero);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+		vec_store1q(Hmax + i, zero);
+#else
 		_mm_store_si128(Hmax + i, zero);
+   /* NEED INSPECTION */ 
+#endif
 	}
 	// the core loop
 	for (i = 0; i < tlen; ++i) {
 		int j, k, imax;
-		__m128i e, h, f = zero, max = zero, *S = q->qp + target[i] * slen; // s is the 1st score vector
+		__m128i e, t, h, f = zero, max = zero, *S = q->qp + target[i] * slen; // s is the 1st score vector
+#ifdef __PPC64__
+		h = vec_load1q(H0 + slen - 1); // h={2,5,8,11,14,17,-1,-1} in the above example
+#else
 		h = _mm_load_si128(H0 + slen - 1); // h={2,5,8,11,14,17,-1,-1} in the above example
-		h = _mm_slli_si128(h, 2);
+   /* NEED INSPECTION */ 
+#endif
+		#ifdef __BIG_ENDIAN__
+#ifdef __PPC64__
+			h = vec_shiftrightbytes1q(h, 2);
+#else
+			h = _mm_srli_si128(h, 2);
+   /* NEED INSPECTION */ 
+#endif
+		#else
+#ifdef __PPC64__
+			h = vec_shiftleftbytes1q(h, 2);
+#else
+			h = _mm_slli_si128(h, 2);
+   /* NEED INSPECTION */ 
+#endif
+		#endif
 		for (j = 0; LIKELY(j < slen); ++j) {
+#ifdef __PPC64__
+			h = vec_addsaturating8sh(h, *S++);
+#else
 			h = _mm_adds_epi16(h, *S++);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			e = vec_load1q(E + j);
+#else
 			e = _mm_load_si128(E + j);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			h = vec_max8sh(h, e);
+#else
 			h = _mm_max_epi16(h, e);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			h = vec_max8sh(h, f);
+#else
 			h = _mm_max_epi16(h, f);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			max = vec_max8sh(max, h);
+#else
 			max = _mm_max_epi16(max, h);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			vec_store1q(H1 + j, h);
+#else
 			_mm_store_si128(H1 + j, h);
-			h = _mm_subs_epu16(h, gapoe);
-			e = _mm_subs_epu16(e, gape);
-			e = _mm_max_epi16(e, h);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			e = vec_subtractsaturating8uh(e, e_del);
+#else
+			e = _mm_subs_epu16(e, e_del);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			t = vec_subtractsaturating8uh(h, oe_del);
+#else
+			t = _mm_subs_epu16(h, oe_del);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			e = vec_max8sh(e, t);
+#else
+			e = _mm_max_epi16(e, t);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			vec_store1q(E + j, e);
+#else
 			_mm_store_si128(E + j, e);
-			f = _mm_subs_epu16(f, gape);
-			f = _mm_max_epi16(f, h);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			f = vec_subtractsaturating8uh(f, e_ins);
+#else
+			f = _mm_subs_epu16(f, e_ins);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			t = vec_subtractsaturating8uh(h, oe_ins);
+#else
+			t = _mm_subs_epu16(h, oe_ins);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			f = vec_max8sh(f, t);
+#else
+			f = _mm_max_epi16(f, t);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+			h = vec_load1q(H0 + j);
+#else
 			h = _mm_load_si128(H0 + j);
+   /* NEED INSPECTION */ 
+#endif
 		}
 		for (k = 0; LIKELY(k < 16); ++k) {
-			f = _mm_slli_si128(f, 2);
+			#ifdef __BIG_ENDIAN__
+#ifdef __PPC64__
+				f = vec_shiftrightbytes1q(f, 2);
+#else
+				f = _mm_srli_si128(f, 2);
+   /* NEED INSPECTION */ 
+#endif
+			#else
+#ifdef __PPC64__
+				f = vec_shiftleftbytes1q(f, 2);
+#else
+				f = _mm_slli_si128(f, 2);
+   /* NEED INSPECTION */ 
+#endif
+			#endif
 			for (j = 0; LIKELY(j < slen); ++j) {
+#ifdef __PPC64__
+				h = vec_load1q(H1 + j);
+#else
 				h = _mm_load_si128(H1 + j);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+				h = vec_max8sh(h, f);
+#else
 				h = _mm_max_epi16(h, f);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+				vec_store1q(H1 + j, h);
+#else
 				_mm_store_si128(H1 + j, h);
-				h = _mm_subs_epu16(h, gapoe);
-				f = _mm_subs_epu16(f, gape);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+				h = vec_subtractsaturating8uh(h, oe_ins);
+#else
+				h = _mm_subs_epu16(h, oe_ins);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+				f = vec_subtractsaturating8uh(f, e_ins);
+#else
+				f = _mm_subs_epu16(f, e_ins);
+   /* NEED INSPECTION */ 
+#endif
+#ifdef __PPC64__
+				if(UNLIKELY(!vec_extractupperbit16sb(vec_comparegt8sh(f, h)))) goto end_loop8;
+#else
 				if(UNLIKELY(!_mm_movemask_epi8(_mm_cmpgt_epi16(f, h)))) goto end_loop8;
+   /* NEED INSPECTION */ 
+#endif
 			}
 		}
 end_loop8:
@@ -295,17 +687,23 @@ end_loop8:
 		if (imax > gmax) {
 			gmax = imax; te = i;
 			for (j = 0; LIKELY(j < slen); ++j)
+#ifdef __PPC64__
+				vec_store1q(Hmax + j, vec_load1q(H1 + j));
+#else
 				_mm_store_si128(Hmax + j, _mm_load_si128(H1 + j));
+   /* NEED INSPECTION */ 
+#endif
 			if (gmax >= endsc) break;
 		}
 		S = H1; H1 = H0; H0 = S;
 	}
 	r.score = gmax; r.te = te;
 	{
-		int max = -1, low, high, qlen = slen * 8;
+		int max = -1, tmp, low, high, qlen = slen * 8;
 		uint16_t *t = (uint16_t*)Hmax;
 		for (i = 0, r.qe = -1; i < qlen; ++i, ++t)
 			if ((int)*t > max) max = *t, r.qe = i / 8 + i % 8 * slen;
+			else if ((int)*t == max && (tmp = i / 8 + i % 8 * slen) < r.qe) r.qe = tmp; 
 		if (b) {
 			i = (r.score + q->max - 1) / q->max;
 			low = te - i; high = te + i;
@@ -320,35 +718,40 @@ end_loop8:
 	return r;
 }
 
-static void revseq(int l, uint8_t *s)
+static inline void revseq(int l, uint8_t *s)
 {
 	int i, t;
 	for (i = 0; i < l>>1; ++i)
 		t = s[i], s[i] = s[l - 1 - i], s[l - 1 - i] = t;
 }
 
-kswr_t ksw_align(int qlen, uint8_t *query, int tlen, uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int xtra, kswq_t **qry)
+kswr_t ksw_align2(int qlen, uint8_t *query, int tlen, uint8_t *target, int m, const int8_t *mat, int o_del, int e_del, int o_ins, int e_ins, int xtra, kswq_t **qry)
 {
 	int size;
 	kswq_t *q;
 	kswr_t r, rr;
-	kswr_t (*func)(kswq_t*, int, const uint8_t*, int, int, int);
+	kswr_t (*func)(kswq_t*, int, const uint8_t*, int, int, int, int, int);
 
 	q = (qry && *qry)? *qry : ksw_qinit((xtra&KSW_XBYTE)? 1 : 2, qlen, query, m, mat);
 	if (qry && *qry == 0) *qry = q;
 	func = q->size == 2? ksw_i16 : ksw_u8;
 	size = q->size;
-	r = func(q, tlen, target, gapo, gape, xtra);
+	r = func(q, tlen, target, o_del, e_del, o_ins, e_ins, xtra);
 	if (qry == 0) free(q);
 	if ((xtra&KSW_XSTART) == 0 || ((xtra&KSW_XSUBO) && r.score < (xtra&0xffff))) return r;
 	revseq(r.qe + 1, query); revseq(r.te + 1, target); // +1 because qe/te points to the exact end, not the position after the end
 	q = ksw_qinit(size, r.qe + 1, query, m, mat);
-	rr = func(q, tlen, target, gapo, gape, KSW_XSTOP | r.score);
+	rr = func(q, tlen, target, o_del, e_del, o_ins, e_ins, KSW_XSTOP | r.score);
 	revseq(r.qe + 1, query); revseq(r.te + 1, target);
 	free(q);
 	if (r.score == rr.score)
 		r.tb = r.te - rr.te, r.qb = r.qe - rr.qe;
 	return r;
+}
+
+kswr_t ksw_align(int qlen, uint8_t *query, int tlen, uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int xtra, kswq_t **qry)
+{
+	return ksw_align2(qlen, query, tlen, target, m, mat, gapo, gape, gapo, gape, xtra, qry);
 }
 
 /********************
@@ -359,12 +762,12 @@ typedef struct {
 	int32_t h, e;
 } eh_t;
 
-int ksw_extend(int qlen, const uint8_t *query, int tlen, const uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int w, int h0, int *_qle, int *_tle)
+int ksw_extend2(int qlen, const uint8_t *query, int tlen, const uint8_t *target, int m, const int8_t *mat, int o_del, int e_del, int o_ins, int e_ins, int w, int end_bonus, int zdrop, int h0, int *_qle, int *_tle, int *_gtle, int *_gscore, int *_max_off)
 {
 	eh_t *eh; // score array
 	int8_t *qp; // query profile
-	int i, j, k, gapoe = gapo + gape, beg, end, max, max_i, max_j, max_gap;
-	if (h0 < 0) h0 = 0;
+	int i, j, k, oe_del = o_del + e_del, oe_ins = o_ins + e_ins, beg, end, max, max_i, max_j, max_ins, max_del, max_ie, gscore, max_off;
+	assert(h0 > 0);
 	// allocate memory
 	qp = malloc(qlen * m);
 	eh = calloc(qlen + 1, 8);
@@ -374,29 +777,35 @@ int ksw_extend(int qlen, const uint8_t *query, int tlen, const uint8_t *target, 
 		for (j = 0; j < qlen; ++j) qp[i++] = p[query[j]];
 	}
 	// fill the first row
-	eh[0].h = h0; eh[1].h = h0 > gapoe? h0 - gapoe : 0;
-	for (j = 2; j <= qlen && eh[j-1].h > gape; ++j)
-		eh[j].h = eh[j-1].h - gape;
+	eh[0].h = h0; eh[1].h = h0 > oe_ins? h0 - oe_ins : 0;
+	for (j = 2; j <= qlen && eh[j-1].h > e_ins; ++j)
+		eh[j].h = eh[j-1].h - e_ins;
 	// adjust $w if it is too large
 	k = m * m;
 	for (i = 0, max = 0; i < k; ++i) // get the max score
 		max = max > mat[i]? max : mat[i];
-	max_gap = (int)((double)(qlen * max - gapo) / gape + 1.);
-	max_gap = max_gap > 1? max_gap : 1;
-	w = w < max_gap? w : max_gap;
+	max_ins = (int)((double)(qlen * max + end_bonus - o_ins) / e_ins + 1.);
+	max_ins = max_ins > 1? max_ins : 1;
+	w = w < max_ins? w : max_ins;
+	max_del = (int)((double)(qlen * max + end_bonus - o_del) / e_del + 1.);
+	max_del = max_del > 1? max_del : 1;
+	w = w < max_del? w : max_del; // TODO: is this necessary?
 	// DP loop
-	max = h0, max_i = max_j = -1;
+	max = h0, max_i = max_j = -1; max_ie = -1, gscore = -1;
+	max_off = 0;
 	beg = 0, end = qlen;
 	for (i = 0; LIKELY(i < tlen); ++i) {
-		int f = 0, h1, m = 0, mj = -1;
+		int t, f = 0, h1, m = 0, mj = -1;
 		int8_t *q = &qp[target[i] * qlen];
-		// compute the first column
-		h1 = h0 - (gapo + gape * (i + 1));
-		if (h1 < 0) h1 = 0;
 		// apply the band and the constraint (if provided)
 		if (beg < i - w) beg = i - w;
 		if (end > i + w + 1) end = i + w + 1;
 		if (end > qlen) end = qlen;
+		// compute the first column
+		if (beg == 0) {
+			h1 = h0 - (o_del + e_del * (i + 1));
+			if (h1 < 0) h1 = 0;
+		} else h1 = 0;
 		for (j = beg; LIKELY(j < end); ++j) {
 			// At the beginning of the loop: eh[j] = { H(i-1,j-1), E(i,j) }, f = F(i,j) and h1 = H(i,j-1)
 			// Similar to SSE2-SW, cells are computed in the following order:
@@ -404,36 +813,59 @@ int ksw_extend(int qlen, const uint8_t *query, int tlen, const uint8_t *target, 
 			//   E(i+1,j) = max{H(i,j)-gapo, E(i,j)} - gape
 			//   F(i,j+1) = max{H(i,j)-gapo, F(i,j)} - gape
 			eh_t *p = &eh[j];
-			int h = p->h, e = p->e; // get H(i-1,j-1) and E(i-1,j)
+			int h, M = p->h, e = p->e; // get H(i-1,j-1) and E(i-1,j)
 			p->h = h1;          // set H(i,j-1) for the next row
-			h += q[j];
-			h = h > e? h : e;
+			M = M? M + q[j] : 0;// separating H and M to disallow a cigar like "100M3I3D20M"
+			h = M > e? M : e;   // e and f are guaranteed to be non-negative, so h>=0 even if M<0
 			h = h > f? h : f;
 			h1 = h;             // save H(i,j) to h1 for the next column
-			mj = m > h? mj : j;
+			mj = m > h? mj : j; // record the position where max score is achieved
 			m = m > h? m : h;   // m is stored at eh[mj+1]
-			h -= gapoe;
-			h = h > 0? h : 0;
-			e -= gape;
-			e = e > h? e : h;   // computed E(i+1,j)
+			t = M - oe_del;
+			t = t > 0? t : 0;
+			e -= e_del;
+			e = e > t? e : t;   // computed E(i+1,j)
 			p->e = e;           // save E(i+1,j) for the next row
-			f -= gape;
-			f = f > h? f : h;   // computed F(i,j+1)
+			t = M - oe_ins;
+			t = t > 0? t : 0;
+			f -= e_ins;
+			f = f > t? f : t;   // computed F(i,j+1)
 		}
 		eh[end].h = h1; eh[end].e = 0;
+		if (j == qlen) {
+			max_ie = gscore > h1? max_ie : i;
+			gscore = gscore > h1? gscore : h1;
+		}
 		if (m == 0) break;
-		if (m > max) max = m, max_i = i, max_j = mj;
+		if (m > max) {
+			max = m, max_i = i, max_j = mj;
+			max_off = max_off > abs(mj - i)? max_off : abs(mj - i);
+		} else if (zdrop > 0) {
+			if (i - max_i > mj - max_j) {
+				if (max - m - ((i - max_i) - (mj - max_j)) * e_del > zdrop) break;
+			} else {
+				if (max - m - ((mj - max_j) - (i - max_i)) * e_ins > zdrop) break;
+			}
+		}
 		// update beg and end for the next round
-		for (j = mj; j >= beg && eh[j].h; --j);
-		beg = j + 1;
-		for (j = mj + 2; j <= end && eh[j].h; ++j);
-		end = j;
+		for (j = beg; LIKELY(j < end) && eh[j].h == 0 && eh[j].e == 0; ++j);
+		beg = j;
+		for (j = end; LIKELY(j >= beg) && eh[j].h == 0 && eh[j].e == 0; --j);
+		end = j + 2 < qlen? j + 2 : qlen;
 		//beg = 0; end = qlen; // uncomment this line for debugging
 	}
 	free(eh); free(qp);
 	if (_qle) *_qle = max_j + 1;
 	if (_tle) *_tle = max_i + 1;
+	if (_gtle) *_gtle = max_ie + 1;
+	if (_gscore) *_gscore = gscore;
+	if (_max_off) *_max_off = max_off;
 	return max;
+}
+
+int ksw_extend(int qlen, const uint8_t *query, int tlen, const uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int w, int end_bonus, int zdrop, int h0, int *qle, int *tle, int *gtle, int *gscore, int *max_off)
+{
+	return ksw_extend2(qlen, query, tlen, target, m, mat, gapo, gape, gapo, gape, w, end_bonus, zdrop, h0, qle, tle, gtle, gscore, max_off);
 }
 
 /********************
@@ -454,16 +886,16 @@ static inline uint32_t *push_cigar(int *n_cigar, int *m_cigar, uint32_t *cigar, 
 	return cigar;
 }
 
-int ksw_global(int qlen, const uint8_t *query, int tlen, const uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int w, int *n_cigar_, uint32_t **cigar_)
+int ksw_global2(int qlen, const uint8_t *query, int tlen, const uint8_t *target, int m, const int8_t *mat, int o_del, int e_del, int o_ins, int e_ins, int w, int *n_cigar_, uint32_t **cigar_)
 {
 	eh_t *eh;
 	int8_t *qp; // query profile
-	int i, j, k, gapoe = gapo + gape, score, n_col;
+	int i, j, k, oe_del = o_del + e_del, oe_ins = o_ins + e_ins, score, n_col;
 	uint8_t *z; // backtrack matrix; in each cell: f<<4|e<<2|h; in principle, we can halve the memory, but backtrack will be a little more complex
 	if (n_cigar_) *n_cigar_ = 0;
 	// allocate memory
 	n_col = qlen < 2*w+1? qlen : 2*w+1; // maximum #columns of the backtrack matrix
-	z = malloc(n_col * tlen);
+	z = n_cigar_ && cigar_? malloc((long)n_col * tlen) : 0;
 	qp = malloc(qlen * m);
 	eh = calloc(qlen + 1, 8);
 	// generate the query profile
@@ -474,38 +906,66 @@ int ksw_global(int qlen, const uint8_t *query, int tlen, const uint8_t *target, 
 	// fill the first row
 	eh[0].h = 0; eh[0].e = MINUS_INF;
 	for (j = 1; j <= qlen && j <= w; ++j)
-		eh[j].h = -(gapo + gape * j), eh[j].e = MINUS_INF;
+		eh[j].h = -(o_ins + e_ins * j), eh[j].e = MINUS_INF;
 	for (; j <= qlen; ++j) eh[j].h = eh[j].e = MINUS_INF; // everything is -inf outside the band
 	// DP loop
 	for (i = 0; LIKELY(i < tlen); ++i) { // target sequence is in the outer loop
-		int32_t f = MINUS_INF, h1, beg, end;
+		int32_t f = MINUS_INF, h1, beg, end, t;
 		int8_t *q = &qp[target[i] * qlen];
-		uint8_t *zi = &z[i * n_col];
 		beg = i > w? i - w : 0;
 		end = i + w + 1 < qlen? i + w + 1 : qlen; // only loop through [beg,end) of the query sequence
-		h1 = beg == 0? -(gapo + gape * (i + 1)) : MINUS_INF;
-		for (j = beg; LIKELY(j < end); ++j) {
-			// This loop is organized in a similar way to ksw_extend() and ksw_sse2(), except:
-			// 1) not checking h>0; 2) recording direction for backtracking
-			eh_t *p = &eh[j];
-			int32_t h = p->h, e = p->e;
-			uint8_t d; // direction
-			p->h = h1;
-			h += q[j];
-			d = h > e? 0 : 1;
-			h = h > e? h : e;
-			d = h > f? d : 2;
-			h = h > f? h : f;
-			h1 = h;
-			h -= gapoe;
-			e -= gape;
-			d |= e > h? 1<<2 : 0;
-			e = e > h? e : h;
-			p->e = e;
-			f -= gape;
-			d |= f > h? 2<<4 : 0; // if we want to halve the memory, use one bit only, instead of two
-			f = f > h? f : h;
-			zi[j - beg] = d; // z[i,j] keeps h for the current cell and e/f for the next cell
+		h1 = beg == 0? -(o_del + e_del * (i + 1)) : MINUS_INF;
+		if (n_cigar_ && cigar_) {
+			uint8_t *zi = &z[(long)i * n_col];
+			for (j = beg; LIKELY(j < end); ++j) {
+				// At the beginning of the loop: eh[j] = { H(i-1,j-1), E(i,j) }, f = F(i,j) and h1 = H(i,j-1)
+				// Cells are computed in the following order:
+				//   M(i,j)   = H(i-1,j-1) + S(i,j)
+				//   H(i,j)   = max{M(i,j), E(i,j), F(i,j)}
+				//   E(i+1,j) = max{M(i,j)-gapo, E(i,j)} - gape
+				//   F(i,j+1) = max{M(i,j)-gapo, F(i,j)} - gape
+				// We have to separate M(i,j); otherwise the direction may not be recorded correctly.
+				// However, a CIGAR like "10M3I3D10M" allowed by local() is disallowed by global().
+				// Such a CIGAR may occur, in theory, if mismatch_penalty > 2*gap_ext_penalty + 2*gap_open_penalty/k.
+				// In practice, this should happen very rarely given a reasonable scoring system.
+				eh_t *p = &eh[j];
+				int32_t h, m = p->h, e = p->e;
+				uint8_t d; // direction
+				p->h = h1;
+				m += q[j];
+				d = m >= e? 0 : 1;
+				h = m >= e? m : e;
+				d = h >= f? d : 2;
+				h = h >= f? h : f;
+				h1 = h;
+				t = m - oe_del;
+				e -= e_del;
+				d |= e > t? 1<<2 : 0;
+				e  = e > t? e    : t;
+				p->e = e;
+				t = m - oe_ins;
+				f -= e_ins;
+				d |= f > t? 2<<4 : 0; // if we want to halve the memory, use one bit only, instead of two
+				f  = f > t? f    : t;
+				zi[j - beg] = d; // z[i,j] keeps h for the current cell and e/f for the next cell
+			}
+		} else {
+			for (j = beg; LIKELY(j < end); ++j) {
+				eh_t *p = &eh[j];
+				int32_t h, m = p->h, e = p->e;
+				p->h = h1;
+				m += q[j];
+				h = m >= e? m : e;
+				h = h >= f? h : f;
+				h1 = h;
+				t = m - oe_del;
+				e -= e_del;
+				e  = e > t? e : t;
+				p->e = e;
+				t = m - oe_ins;
+				f -= e_ins;
+				f  = f > t? f : t;
+			}
 		}
 		eh[end].h = h1; eh[end].e = MINUS_INF;
 	}
@@ -515,7 +975,7 @@ int ksw_global(int qlen, const uint8_t *query, int tlen, const uint8_t *target, 
 		uint32_t *cigar = 0, tmp;
 		i = tlen - 1; k = (i + w + 1 < qlen? i + w + 1 : qlen) - 1; // (i,k) points to the last cell
 		while (i >= 0 && k >= 0) {
-			which = z[i * n_col + (k - (i > w? i - w : 0))] >> (which<<1) & 3;
+			which = z[(long)i * n_col + (k - (i > w? i - w : 0))] >> (which<<1) & 3;
 			if (which == 0)      cigar = push_cigar(&n_cigar, &m_cigar, cigar, 0, 1), --i, --k;
 			else if (which == 1) cigar = push_cigar(&n_cigar, &m_cigar, cigar, 2, 1), --i;
 			else                 cigar = push_cigar(&n_cigar, &m_cigar, cigar, 1, 1), --k;
@@ -530,6 +990,11 @@ int ksw_global(int qlen, const uint8_t *query, int tlen, const uint8_t *target, 
 	return score;
 }
 
+int ksw_global(int qlen, const uint8_t *query, int tlen, const uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int w, int *n_cigar_, uint32_t **cigar_)
+{
+	return ksw_global2(qlen, query, tlen, target, m, mat, gapo, gape, gapo, gape, w, n_cigar_, cigar_);
+}
+
 /*******************************************
  * Main function (not compiled by default) *
  *******************************************/
@@ -540,7 +1005,7 @@ int ksw_global(int qlen, const uint8_t *query, int tlen, const uint8_t *target, 
 #include <stdio.h>
 #include <zlib.h>
 #include "kseq.h"
-KSEQ_INIT(gzFile, gzread)
+KSEQ_INIT(gzFile, err_gzread)
 
 unsigned char seq_nt4_table[256] = {
 	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4, 
@@ -596,8 +1061,8 @@ int main(int argc, char *argv[])
 	}
 	for (j = 0; j < 5; ++j) mat[k++] = 0;
 	// open file
-	fpt = gzopen(argv[optind],   "r"); kst = kseq_init(fpt);
-	fpq = gzopen(argv[optind+1], "r"); ksq = kseq_init(fpq);
+	fpt = xzopen(argv[optind],   "r"); kst = kseq_init(fpt);
+	fpq = xzopen(argv[optind+1], "r"); ksq = kseq_init(fpq);
 	// all-pair alignment
 	while (kseq_read(ksq) > 0) {
 		kswq_t *q[2] = {0, 0};
@@ -616,18 +1081,18 @@ int main(int argc, char *argv[])
 			for (i = 0; i < (int)kst->seq.l; ++i) kst->seq.s[i] = seq_nt4_table[(int)kst->seq.s[i]];
 			r = ksw_align(ksq->seq.l, (uint8_t*)ksq->seq.s, kst->seq.l, (uint8_t*)kst->seq.s, 5, mat, gapo, gape, xtra, &q[0]);
 			if (r.score >= minsc)
-				printf("%s\t%d\t%d\t%s\t%d\t%d\t%d\t%d\t%d\n", kst->name.s, r.tb, r.te+1, ksq->name.s, r.qb, r.qe+1, r.score, r.score2, r.te2);
+				err_printf("%s\t%d\t%d\t%s\t%d\t%d\t%d\t%d\t%d\n", kst->name.s, r.tb, r.te+1, ksq->name.s, r.qb, r.qe+1, r.score, r.score2, r.te2);
 			if (rseq) {
 				r = ksw_align(ksq->seq.l, rseq, kst->seq.l, (uint8_t*)kst->seq.s, 5, mat, gapo, gape, xtra, &q[1]);
 				if (r.score >= minsc)
-					printf("%s\t%d\t%d\t%s\t%d\t%d\t%d\t%d\t%d\n", kst->name.s, r.tb, r.te+1, ksq->name.s, (int)ksq->seq.l - r.qb, (int)ksq->seq.l - 1 - r.qe, r.score, r.score2, r.te2);
+					err_printf("%s\t%d\t%d\t%s\t%d\t%d\t%d\t%d\t%d\n", kst->name.s, r.tb, r.te+1, ksq->name.s, (int)ksq->seq.l - r.qb, (int)ksq->seq.l - 1 - r.qe, r.score, r.score2, r.te2);
 			}
 		}
 		free(q[0]); free(q[1]);
 	}
 	free(rseq);
-	kseq_destroy(kst); gzclose(fpt);
-	kseq_destroy(ksq); gzclose(fpq);
+	kseq_destroy(kst); err_gzclose(fpt);
+	kseq_destroy(ksq); err_gzclose(fpq);
 	return 0;
 }
 #endif
