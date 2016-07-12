@@ -24,6 +24,20 @@
 #define VECLIB_ALIGNED8 __attribute__ ((__aligned__ (8)))
 #define VECLIB_ALIGNED16 __attribute__ ((__aligned__ (16)))
 
+#ifdef __LITTLE_ENDIAN__
+  #define __vsx_lowest_left_half_char_in_memory  8
+  #define __vsr_lowest_left_half_short_in_memory 4
+  #define __vsr_lowest_left_half_int_in_memory   2
+  #define __vsr_left_half_long_long_in_memory    1
+  #define __vsr_right_half_long_long_in_memory   0
+#elif __BIG_ENDIAN__
+  #define __vsx_lowest_left_half_char_in_memory  7
+  #define __vsr_lowest_left_half_short_in_memory 3
+  #define __vsr_lowest_left_half_int_in_memory   1
+  #define __vsr_left_half_long_long_in_memory    0
+  #define __vsr_right_half_long_long_in_memory   1
+#endif
+
 /* Control inlining */
 #ifdef NOT_ALWAYS_INLINE
   #define VECLIB_INLINE
