@@ -108,16 +108,6 @@ kson_node_t *kson_parse_core(const char *json, long *_n, int *error, long *parse
 	return a;
 }
 
-void kson_destroy(kson_t *kson)
-{
-	long i;
-	if (kson == 0) return;
-	for (i = 0; i < kson->n_nodes; ++i) {
-		free(kson->root[i].key); free(kson->root[i].v.str);
-	}
-	free(kson->root); free(kson);
-}
-
 kson_t *kson_parse(const char *json)
 {
 	kson_t *kson;
@@ -131,9 +121,111 @@ kson_t *kson_parse(const char *json)
 	return kson;
 }
 
+/******************
+ *** Manipulate ***
+ ******************/
+
+kson_node_t *kson_create_node(const kson_node_t *p, long type, const char *key)
+{
+    kson_node_t *r = (kson_node_t *) malloc(sizeof(kson_node_t));
+    if (key) {
+        r->key = (char *) calloc(strlen(key) + 1, sizeof(char))
+        strcpy(r->key, key);
+    }
+    else
+        r->key = 0;
+    r->type = type;
+    r->n = 0;
+    if (kson_is_internal(r)) r->v.child = 0;
+    else r->v.str = 0;
+	return r;
+}
+
+kson_node_t *kson_add_key(const kson_node_t *p, long type, const char *key)
+{
+	long i;
+    kson_node_t *r = 0;
+	if ((p)->type != KSON_TYPE_BRACE) return 0;
+	for (i = 0; i < (long)p->n; ++i) {
+		const kson_node_t *q = p->v.child[i];
+		if (q->key && strcmp(q->key, key) == 0)
+			r = q;
+	}
+	if (r == 0) r = kson_create_node(p, type, key);
+	return r;
+}
+
+kson_node_t *kson_add_index(const kson_node_t *p, long type)
+{
+	if ((p)->type != KSON_TYPE_BRACKET) return 0;
+    p->v.child = (kson_node_t *) realloc(p->v.child, p->n + 1);
+    p->v.child[p->n] = kson_create_node(p, type, 0);
+	return p->v.child[p->n];
+}
+
+void kson_set(const kson_node_t *p, const char* value)
+{
+    if (kson_is_internal(p)) return;
+    if (value) {
+        p->v.str = (char *) calloc(strlen(value) + 1, sizeof(char))
+        strcpy(p->v.str, value);
+    }
+    else
+        p->v.str = 0;
+}
+
+void kson_clear_node(const kson_node_t *p)
+{
+	long i;
+	if (p == 0) return;
+    if (kson_is_internal(p)) {
+        //for (i = 0; i < (long)p->n; ++i) {
+        //    kson_clear_node( p->v.child[i] );
+        //    free( p->v.child[i] );
+        //}
+        if(p->v.child) free(p->v.child);
+        p->v.child = 0;
+        p->n = 0;
+    }
+    else {
+        //if (p->v.str) free(p->v.str);
+        p->v.str = 0;
+    }
+    
+    free(p->key);
+}
+
+void kson_destroy(kson_t *kson)
+{
+	long i;
+	if (kson == 0) return;
+	for (i = 0; i < kson->n_nodes; ++i) {
+		free(kson->root[i].key); free(kson->root[i].v.str);
+	}
+	free(kson->root); free(kson);
+}
+
 /*************
  *** Query ***
  *************/
+
+const kson_node_t *kson_by_key(const kson_node_t *p, const char *key)
+{
+	long i;
+	if (!kson_is_internal(p)) return 0;
+	for (i = 0; i < (long)p->n; ++i) {
+		const kson_node_t *q = p->v.child[i];
+		if (q->key && strcmp(q->key, key) == 0)
+			return q;
+	}
+	return 0;
+}
+
+const kson_node_t *kson_by_index(const kson_node_t *p, long i)
+{
+	if (!kson_is_internal(p)) return 0;
+	return 0 <= i && i < (long)p->n? p->v.child[i] : 0;
+}
 
 const kson_node_t *kson_by_path(const kson_node_t *p, int depth, ...)
 {
@@ -152,8 +244,63 @@ const kson_node_t *kson_by_path(const kson_node_t *p, int depth, ...)
 }
 
 /**************
- *** Fromat ***
+ *** Format ***
  **************/
+
+char* kson_format_str(const kson_node_t *p, int depth)
+{
+	long i;
+	size_t pad_len = (depth >= 0) ? 2 * depth : 0;                      // Padding length for idented mode
+	size_t str_len = pad_len;
+	char* str = (char*) malloc(str_len + 1);                            // Allocate memory for null terminator
+	for (i = 0; i < depth; ++i) strcat(str, "  ");
+	if (p->key) {
+		size_t key_str_len = strlen(p->key) + 2;                        // Allocate memory for key string + 2 quotation marks
+		str = (char*) realloc(str, str_len + key_str_len + 1);
+		sprintf(str + str_len, "\"%s\":", p->key);                      // Copy "<key>" to the end of the string
+		str_len += key_str_len;                                         // Update total JSON string length
+	}
+	if (p->type == KSON_TYPE_BRACKET || p->type == KSON_TYPE_BRACE) {
+		str_len += 2;
+		str = (char*) realloc(str, str_len + 1);                        // Allocate memory for 2 brackets/braces
+		strcat(str, p->type == KSON_TYPE_BRACKET? "[" : "{");           // Add only the first bracket/brace before the child nodes                                                     
+		if (p->n) {
+			for (i = 0; i < (long)p->n; ++i) {
+				// Get already allocated and quoted (if needed) child strings
+				char* node_str = kson_format_str(p->v.child[i], (depth >= 0) ? depth + 1 : -1); 
+				str_len += strlen(node_str);
+				str = (char*) realloc(str, str_len + 1);
+				strcat(str, node_str);
+				free(node_str);                                         // Free node string allocated by recursive call
+				if (i + 1 < (long)p->n) {                               // Append comma at the end of previous child string
+					str_len++;
+					str = (char*) realloc(str, str_len + 1);
+					strcat(str, ",");  
+				}
+				if( depth >= 0 ) {                                      // Append new line between children for idented mode
+					str_len++;
+					str = (char*) realloc(str, str_len + 1);
+					strcat(str, "\n");
+				}
+			}
+			str_len += pad_len;                                         // Pad closing bracket/brace for idented mode
+			str = (char*) realloc(str, str_len + 1);
+			for (i = 0; i < depth; ++i) strcat(str, "  ");
+		}
+		strcat(str, p->type == KSON_TYPE_BRACKET? "]" : "}");           // Add second bracket/brace after the child nodes        
+	} else {
+		str_len += strlen(p->v.str);                                    // Allocate memory for value string
+		if (p->type != KSON_TYPE_NO_QUOTE) str_len += 2;                // Allocate memory for 2 quotation marks if needed
+		str = (char*) realloc(str, str_len + 1);
+		if (p->type != KSON_TYPE_NO_QUOTE)
+			strcat(str, p->type == KSON_TYPE_SGL_QUOTE? "\'" : "\"");
+		strcat(str, p->v.str);                                          // Append value string between quotes (if needed)
+		if (p->type != KSON_TYPE_NO_QUOTE)
+			strcat(str, p->type == KSON_TYPE_SGL_QUOTE? "\'" : "\"");
+	}
+	s[str_len] = '\0'
+	return s;
+}
 
 void kson_format_recur(const kson_node_t *p, int depth)
 {
