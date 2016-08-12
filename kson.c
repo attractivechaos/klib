@@ -110,7 +110,7 @@ kson_node_t *kson_add_node(kson_node_t *p, long type, const char *key)
     if (p->n == 0) p->v.child = 0;
 	p->v.child = (kson_node_t **) realloc(p->v.child, (p->n++) * sizeof(kson_node_t *));
 	p->v.child[p->n - 1] = kson_create(type, key);
-    if (p->type == KSON_TYPE_NULL) kson_set(p, 0);
+    if (p->v.child[p->n - 1]->type == KSON_TYPE_NULL) kson_set(p->v.child[p->n - 1], 0);
 	return p->v.child[p->n - 1];
 }
 
@@ -140,7 +140,7 @@ void kson_set(kson_node_t *p, const char* value)
         p->v.str = 0;
     }
     if (p->type == KSON_TYPE_BOOLEAN) value = (value) ? TRUE_STR : FALSE_STR;
-    if (p->type == KSON_TYPE_NULL) value = NULL_STR;
+    else if (p->type == KSON_TYPE_NULL) value = NULL_STR;
     if (value) {
         p->v.str = (char *) realloc(p->v.str, (strlen(value) + 1) * sizeof(char));
         strcpy(p->v.str, value);
@@ -350,8 +350,7 @@ int main(int argc, char *argv[])
     b = kson_add_key(kson, KSON_TYPE_STRING, "f");
     kson_set(b, "0.0");
     b = kson_add_key(kson, KSON_TYPE_BRACKET, "n");
-    b = kson_add_index(b, KSON_TYPE_BOOLEAN );
-    kson_set(b, 0);
+    b = kson_add_index(b, KSON_TYPE_NULL);
     kson_format(kson);
     kson_destroy(kson);
 	return 0;
