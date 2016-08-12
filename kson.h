@@ -18,6 +18,7 @@
 #define KSON_FMT_SERIAL      -1
 #define KSON_FMT_IDENT       0
 
+
 typedef struct kson_node_s {
 	unsigned long long type:3, n:61;
 	char *key;
@@ -40,6 +41,7 @@ extern "C" {
 
 	kson_node_t *kson_parse(const char *json);
     kson_node_t *kson_create(long type, const char *key);
+    void kson_set(kson_node_t *root, const char *value);
 	void kson_clear(kson_node_t *root);
 	void kson_destroy(kson_node_t *root);
     kson_node_t *kson_by_key(const kson_node_t *root, const char *key);

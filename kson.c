@@ -6,6 +6,9 @@
 #include <stdio.h>
 #include "kson.h"
 
+const char *NULL_STR = "null";
+const char *TRUE_STR = "true";
+const char *FALSE_STR = "false";
 
 /*************
  *** Parse ***
@@ -57,7 +60,7 @@ kson_node_t *kson_parse_recur(const char **json, int *error)
 			}
 			u->v.str = (char*)malloc(q - p + 1); strncpy(u->v.str, p, q - p); u->v.str[q-p] = 0; // equivalent to u->v.str=strndup(p, q-p)
 			if (c == '\'' || c == '"') u->type = KSON_TYPE_STRING; 
-			else if (strcmp(u->v.str, "null") == 0) u->type = KSON_TYPE_NULL;
+			else if (strcmp(u->v.str, NULL_STR) == 0) u->type = KSON_TYPE_NULL;
 			else if (strcmp(u->v.str, "true") == 0 || strcmp(u->v.str, "false") == 0) u->type = KSON_TYPE_BOOLEAN;
 			else u->type = KSON_TYPE_NUMBER;
 			p = (c == '\'' || c == '"') ? q : q - 1;
@@ -104,8 +107,10 @@ kson_node_t *kson_create(long type, const char *key)
 
 kson_node_t *kson_add_node(kson_node_t *p, long type, const char *key)
 {
+    if (p->n == 0) p->v.child = 0;
 	p->v.child = (kson_node_t **) realloc(p->v.child, (p->n++) * sizeof(kson_node_t *));
 	p->v.child[p->n - 1] = kson_create(type, key);
+    if (p->type == KSON_TYPE_NULL) kson_set(p, 0);
 	return p->v.child[p->n - 1];
 }
 
@@ -127,16 +132,19 @@ kson_node_t *kson_add_index(kson_node_t *p, long type)
 	return kson_add_node(p, type, 0);
 }
 
-void kson_set(const kson_node_t *p, const char* value)
+void kson_set(kson_node_t *p, const char* value)
 {
     if (kson_is_internal(p)) return;
-    kson_node_t *q = (kson_node_t *) p;
+    if (p->v.str) {
+        free(p->v.str);
+        p->v.str = 0;
+    }
+    if (p->type == KSON_TYPE_BOOLEAN) value = (value) ? TRUE_STR : FALSE_STR;
+    if (p->type == KSON_TYPE_NULL) value = NULL_STR;
     if (value) {
-        q->v.str = (char *) realloc(q->v.str, (strlen(value) + 1) * sizeof(char));
+        p->v.str = (char *) realloc(p->v.str, (strlen(value) + 1) * sizeof(char));
         strcpy(p->v.str, value);
     }
-    else
-        q->v.str = 0;
 }
 
 void kson_clear(kson_node_t *p)
@@ -327,7 +335,7 @@ int main(int argc, char *argv[])
 	} else {
 		kson = kson_parse("{'a' : 1,'b':[0,'isn\\'t',true],'d':[{\n\n\n}]}");
 		if (kson) {
-			const kson_node_t *p = kson_by_path(kson, 2, "b", 1);
+			kson_node_t *p = kson_by_path(kson, 2, "b", 1);
 			if (p) printf("*** %s\n", p->v.str);
 			else printf("!!! not found\n");
 			kson_format(kson);
@@ -336,6 +344,16 @@ int main(int argc, char *argv[])
 		}
 	}
 	kson_destroy(kson);
+    kson = kson_create(KSON_TYPE_BRACE, 0);
+    kson_node_t *b = kson_add_key(kson, KSON_TYPE_BOOLEAN, "e");
+    kson_set(b, 0);
+    b = kson_add_key(kson, KSON_TYPE_STRING, "f");
+    kson_set(b, "0.0");
+    b = kson_add_key(kson, KSON_TYPE_BRACKET, "n");
+    b = kson_add_index(b, KSON_TYPE_BOOLEAN );
+    kson_set(b, 0);
+    kson_format(kson);
+    kson_destroy(kson);
 	return 0;
 }
 #endif
