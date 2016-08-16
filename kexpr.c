@@ -42,10 +42,6 @@
 #define KET_OP    2
 #define KET_FUNC  3
 
-#define KEV_REAL  1
-#define KEV_INT   2
-#define KEV_STR   3
-
 #define KEF_NULL  0
 #define KEF_REAL  1
 
@@ -81,7 +77,7 @@ static int ke_op[25] = {
 	12<<1 // ||
 };
 
-static char *ke_opstr[] = {
+static const char *ke_opstr[] = {
 	"",
 	"+(1)", "-(1)", "~", "!",
 	"**",
@@ -181,14 +177,16 @@ static ke1_t ke_read_token(char *p, char **r, int *err, int last_is_val) // it d
 		e.name = mystrndup(q, p - q);
 		e.i = 0, e.r = 0.;
 		*r = p;
-	} else if (isdigit(*p)) { // a number
+	} else if (isdigit(*p) || *p == '.') { // a number
 		long x;
 		double y;
 		char *pp;
 		e.ttype = KET_VAL;
 		y = strtod(q, &p);
 		x = strtol(q, &pp, 0); // FIXME: check int/double parsing errors
-		if (p > pp) { // has "." or "[eE]"; then it is a real number
+		if (q == p && q == pp) { // parse error
+			*err |= KEE_NUM;
+		} else if (p > pp) { // has "." or "[eE]"; then it is a real number
 			e.vtype = KEV_REAL;
 			e.i = (int64_t)(y + .5), e.r = y;
 			*r = p;
@@ -221,8 +219,9 @@ static ke1_t ke_read_token(char *p, char **r, int *err, int last_is_val) // it d
 			if (last_is_val) e.op = KEO_SUB, e.f.builtin = ke_op_KEO_SUB, e.n_args = 2;
 			else e.op = KEO_NEG, e.f.builtin = ke_op_KEO_NEG, e.n_args = 1;
 			*r = q + 1;
-		} else if (*p == '=' && p[1] == '=')e.op = KEO_EQ,e.f.builtin = ke_op_KEO_EQ, e.n_args = 2, *r = q + 2;
+		} else if (*p == '=' && p[1] == '=') e.op = KEO_EQ, e.f.builtin = ke_op_KEO_EQ, e.n_args = 2, *r = q + 2;
 		else if (*p == '!' && p[1] == '=') e.op = KEO_NE, e.f.builtin = ke_op_KEO_NE, e.n_args = 2, *r = q + 2;
+		else if (*p == '<' && p[1] == '>') e.op = KEO_NE, e.f.builtin = ke_op_KEO_NE, e.n_args = 2, *r = q + 2;
 		else if (*p == '>' && p[1] == '=') e.op = KEO_GE, e.f.builtin = ke_op_KEO_GE, e.n_args = 2, *r = q + 2;
 		else if (*p == '<' && p[1] == '=') e.op = KEO_LE, e.f.builtin = ke_op_KEO_LE, e.n_args = 2, *r = q + 2;
 		else if (*p == '>' && p[1] == '>') e.op = KEO_RSH, e.f.builtin = ke_op_KEO_RSH, e.n_args = 2, *r = q + 2;
@@ -277,7 +276,7 @@ static ke1_t *ke_parse_core(const char *_s, int *_n, int *err)
 				u = push_back(&out, &n_out, &m_out);
 				*u = op[--n_op];
 			}
-			if (n_op < 0) { // error: extra right parenthesis
+			if (n_op == 0) { // error: extra right parenthesis
 				*err |= KEE_UNRP;
 				break;
 			} else --n_op; // pop out '('
@@ -364,11 +363,11 @@ kexpr_t *ke_parse(const char *_s, int *err)
 	return ke;
 }
 
-int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, int *int_ret)
+int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, const char **_p, int *ret_type)
 {
 	ke1_t *stack, *p, *q;
 	int i, top = 0, err = 0;
-	*_i = 0, *_r = 0., *int_ret = 0;
+	*_i = 0, *_r = 0., *ret_type = 0;
 	for (i = 0; i < ke->n; ++i) {
 		ke1_t *e = &ke->e[i];
 		if ((e->ttype == KET_OP || e->ttype == KET_FUNC) && e->f.builtin == 0) err |= KEE_UNFUNC;
@@ -393,9 +392,30 @@ int ke_eval(const kexpr_t *ke, int64_t *_i, double *_r, int *int_ret)
 			} else top -= e->n_args - 1;
 		} else stack[top++] = *e;
 	}
-	*_i = stack->i, *_r = stack->r, *int_ret = (stack->vtype == KEV_INT);
+	*ret_type = stack->vtype;
+	*_i = stack->i, *_r = stack->r, *_p = stack->s;
 	free(stack);
 	return err;
+}	
+
+int64_t ke_eval_int(const kexpr_t *ke, int *err)
+{
+	int int_ret;
+	int64_t i;
+	double r;
+	const char *s;
+	*err = ke_eval(ke, &i, &r, &s, &int_ret);
+	return i;
+}
+
+double ke_eval_real(const kexpr_t *ke, int *err)
+{
+	int int_ret;
+	int64_t i;
+	double r;
+	const char *s;
+	*err = ke_eval(ke, &i, &r, &s, &int_ret);
+	return r;
 }
 
 void ke_destroy(kexpr_t *ke)
@@ -541,7 +561,8 @@ int main(int argc, char *argv[])
 	if (!to_print) {
 		int64_t vi;
 		double vr;
-		int i, int_ret;
+		const char *vs;
+		int i, ret_type;
 		if (argc - optind > 1) {
 			for (i = optind + 1; i < argc; ++i) {
 				char *p, *s = argv[i];
@@ -551,12 +572,13 @@ int main(int argc, char *argv[])
 				ke_set_real(ke, s, strtod(p+1, &p));
 			}
 		}
-		err |= ke_eval(ke, &vi, &vr, &int_ret);
+		err |= ke_eval(ke, &vi, &vr, &vs, &ret_type);
 		if (err & KEE_UNFUNC)
 			fprintf(stderr, "Evaluation warning: an undefined function returns the first function argument.\n");
 		if (err & KEE_UNVAR) fprintf(stderr, "Evaluation warning: unassigned variables are set to 0.\n");
-		if (is_int) printf("%lld\n", (long long)vi);
-		else printf("%g\n", vr);
+		if (ret_type == KEV_INT) printf("%lld\n", (long long)vi);
+		else if (ret_type == KEV_REAL) printf("%g\n", vr);
+		else printf("%s\n", vs);
 	} else ke_print(ke);
 	ke_destroy(ke);
 	return 0;
