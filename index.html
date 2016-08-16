@@ -8604,12 +8604,30 @@ int main(int argc, char *argv[])
 }
 ```</pre>
 </div>
-<div created="20160816212627236" creator="lh3" modified="20160816213101057" modifier="lh3" tags="[[Library Documentations]]" title="Kexpr: parsing mathematical expressions">
+<div created="20160816212627236" creator="lh3" modified="20160816214112990" modifier="lh3" tags="[[Library Documentations]]" title="Kexpr: parsing mathematical expressions">
 <pre>!!Synopsis
 * Functionality: parse a mathematical expression with the [[Shunting-yard algorithm|https://en.wikipedia.org/wiki/Shunting-yard_algorithm]] and evaluate the final value. The library supports functions and variables.
 * Library source code: [[kexpr.h|https://github.com/attractivechaos/klib/blob/master/kexpr.h]] and [[kexpr.c|https://github.com/attractivechaos/klib/blob/master/kexpr.c]]
 * Dependencies: none
 !!Example
+!!!Example 1: basic functionality
+```c
+#include &lt;math.h&gt;
+#include &lt;stdio.h&gt;
+#include &quot;kexpr.h&quot;
+
+int main()
+{
+	kexpr_t *ke;
+	int err;
+	ke = ke_parse(&quot;5.1+6*myexp(x)&quot;, &amp;err);   // parse expression
+	ke_set_real(ke, &quot;x&quot;, 1.0);               // set the value of a variable
+	ke_set_real_func1(ke, &quot;myexp&quot;, exp);     // define a math function
+	printf(&quot;%g\n&quot;, ke_eval_real(ke, &amp;err));  // compute the expression
+	return 0;
+}
+```
+!!!Example 2: complete command-line calculator
 ```c
 // to compile: gcc -O2 this-prog.c kexpr.c -o kexpr-demo
 // to run:     ./kexpr-demo &quot;5.6+exp(x)&quot; x=1.1
