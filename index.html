@@ -8239,7 +8239,7 @@ pre .xml .cdata {
 <div created="20160816211342290" creator="lh3" modified="20160816211449435" modifier="lh3" title="$:/state/tab-1749438307">
 <pre>$:/core/ui/ControlPanel/Appearance</pre>
 </div>
-<div created="20160816211329763" creator="lh3" modified="20160816211458376" modifier="lh3" title="$:/state/tab/sidebar--1835078512">
+<div created="20160816211329763" creator="lh3" modified="20160822122933881" modifier="lh3" title="$:/state/tab/sidebar--1835078512">
 <pre>TableOfContents</pre>
 </div>
 <div created="20141130022153074" creator="l" modified="20141130022153293" modifier="lh" title="$:/status/UserName">
@@ -8676,7 +8676,7 @@ int main(int argc, char *argv[])
 }
 ```</pre>
 </div>
-<div created="20141130065006297" creator="lh3" modified="20141130195510784" modifier="lh3" tags="[[Library Documentations]]" title="Khash: generic hash table">
+<div created="20141130065006297" creator="lh3" modified="20160822122840599" modifier="lh3" tags="[[Library Documentations]]" title="Khash: generic hash table">
 <pre>!!Synopsis
 * Functionality: generic hash table with [[open addressing|http://en.wikipedia.org/wiki/Open_addressing]]
 * Library source code: [[khash.h|https://github.com/attractivechaos/klib/blob/master/khash.h]]
@@ -8705,7 +8705,9 @@ int main() {
   return 0;
 }
 ```
-!!!Example 2: counting distinct words (hash table for strings)
+!!!Example 2: counting distinct words (without heap allocation)
+The following demonstrates how to insert string pointers to a hash table, without duplicating keys. If we have string pointers kept elsewhere (in this example, in `argv[]`), this is the preferred way to implement a string hash table.
+
 ```c
 #include &lt;stdio.h&gt;
 #include &lt;string.h&gt;
@@ -8718,20 +8720,42 @@ int main(int argc, char *argv[])
     khint_t k;
     int i, absent;
     h = kh_init(str);
-    for (i = 1; i &lt; argc; ++i) {
+    for (i = 1; i &lt; argc; ++i)
         k = kh_put(str, h, argv[i], &amp;absent);
-        // strdup() is not necessary in this example
-        // we use it to demo hash table deallocation
-        if (absent) kh_key(h, k) = strdup(argv[i]);
-        // else, the key is not touched; we do nothing
-    }
     printf(&quot;# of distinct words: %d\n&quot;, kh_size(h));
-    // IMPORTANT: free memory allocated by strdup() above
-    for (k = 0; k &lt; kh_end(h); ++k)
-        if (kh_exist(h, k))
-            free((char*)kh_key(h, k));
     kh_destroy(str, h);
     return 0;
+}
+```
+!!!Example 3: coutning distinct words (with heap allocation)
+The following demonstrates how to insert string pointers and their contents into a hash table. This is the //only// approach if the pointers are not kept elsewhere.
+
+```c
+// To run this program: `echo a bc a cd bc|./this_prog`
+#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+#include &quot;khash.h&quot;
+KHASH_SET_INIT_STR(str)
+
+int main(int argc, char *argv[])
+{
+	char s[4096]; // max string length: 4095 characters
+	khash_t(str) *h;
+	khint_t k;
+	h = kh_init(str);
+	while (scanf(&quot;%s&quot;, s) &gt; 0) {
+		int absent;
+		k = kh_put(str, h, s, &amp;absent);
+		if (absent) kh_key(h, k) = strdup(s);
+		// else, the key is not touched; we do nothing
+	}
+	printf(&quot;# of distinct words: %d\n&quot;, kh_size(h));
+	// IMPORTANT: free memory allocated by strdup() above
+	for (k = 0; k &lt; kh_end(h); ++k)
+		if (kh_exist(h, k))
+			free((char*)kh_key(h, k));
+	kh_destroy(str, h);
+	return 0;
 }
 ```</pre>
 </div>
