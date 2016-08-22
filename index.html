@@ -187,6 +187,8 @@ Error message and password prompt
 
 <li>KBtree: generic ordered map</li>
 
+<li>Kdq: double-ended queue</li>
+
 <li>Kexpr: parsing mathematical expressions</li>
 
 <li>Khash: generic hash table</li>
@@ -8239,7 +8241,7 @@ pre .xml .cdata {
 <div created="20160816211342290" creator="lh3" modified="20160816211449435" modifier="lh3" title="$:/state/tab-1749438307">
 <pre>$:/core/ui/ControlPanel/Appearance</pre>
 </div>
-<div created="20160816211329763" creator="lh3" modified="20160822122933881" modifier="lh3" title="$:/state/tab/sidebar--1835078512">
+<div created="20160816211329763" creator="lh3" modified="20160822124534812" modifier="lh3" title="$:/state/tab/sidebar--1835078512">
 <pre>TableOfContents</pre>
 </div>
 <div created="20141130022153074" creator="l" modified="20141130022153293" modifier="lh" title="$:/status/UserName">
@@ -8380,7 +8382,7 @@ pre .xml .cdata {
 <div modified="20141201152658215" modifier="lh3" title="$:/view">
 <pre>classic</pre>
 </div>
-<div created="20141130022418365" creator="lh3" modified="20160816212607052" modifier="lh3" tags="TableOfContents" title="About">
+<div created="20141130022418365" creator="lh3" modified="20160822123859305" modifier="lh3" tags="TableOfContents" title="About">
 <pre>[[Klib|https://github.com/attractivechaos/klib/]] is a standalone and lightweight C library distributed under [[MIT/X11 license|http://en.wikipedia.org/wiki/MIT_License]]. Most components are independent of external libraries, except the standard C library, and independent of each other. To use a component of this library, you only need to copy a couple of files to your source code tree without worrying about library dependencies.
 
 Klib strives for efficiency and a small memory footprint. Some components, such as hash table, B-tree, vector and sorting algorithms, are among the most efficient implementations of similar algorithms or data structures in all programming languages, in terms of both speed and memory use.
@@ -8392,6 +8394,7 @@ Klib strives for efficiency and a small memory footprint. Some components, such 
 * [[ksort.h|Ksort: sorting, shuffling, heap and k-small]]: generic sort, including introsort, merge sort, heap sort, comb sort, Knuth shuffle and the k-small algorithm.
 * [[kseq.h|Kseq: stream buffer and FASTA/Q parser]]: generic stream buffer and a FASTA/FASTQ format parser.
 * kvec.h: generic dynamic array.
+* [[kdq.h|Kdq: double-ended queue]]: generic double-ended queue (de-queue).
 * klist.h: generic single-linked list and memory pool.
 * kstring.{h,c}: basic string library.
 * kmath.{h,c}: numerical routines including [[MT19937-64|http://en.wikipedia.org/wiki/Mersenne_twister]] pseudorandom number generator, basic nonlinear programming and a few special math functions.
@@ -8601,6 +8604,34 @@ int main(int argc, char *argv[])
     }
     kb_destroy(str, b);
     return 0;
+}
+```</pre>
+</div>
+<div created="20160822123922983" creator="lh3" modified="20160822124447804" modifier="lh3" tags="[[Library Documentations]]" title="Kdq: double-ended queue">
+<pre>!!Synopsis
+* Functionality: double-ended queue (de-queue) implemented with a rolling buffer
+* Library source code: [[kdq.h|https://github.com/attractivechaos/klib/blob/master/kdq.h]]
+* Dependencies: none
+!!Example
+
+```c
+#include &lt;stdio.h&gt;
+#include &quot;kdq.h&quot;
+KDQ_INIT(int)
+
+int main(void)
+{
+	int i, t;
+	kdq_t(int) *q;
+	q = kdq_init(int);
+	kdq_push(int, q, 7);     // add an element from the tail
+	kdq_unshift(int, q, 5);  // ddd an element from the head
+	kdq_unshift(int, q, 3);  // ddd an element from the head
+	t = kdq_shift(int, q);   // get an element from the head
+	for (i = 0; i &lt; kdq_size(q); ++i) // iterate from head to tail
+		printf(&quot;q[%d]=%d\n&quot;, i, kdq_at(q, i));
+	kdq_destroy(int, q);
+	return 0;
 }
 ```</pre>
 </div>
@@ -9074,10 +9105,10 @@ int main(int argc, char *argv[])
 }
 ```</pre>
 </div>
-<div created="20141130044228188" creator="lh3" modified="20141130044958286" modifier="lh3" tags="TableOfContents" title="Library Documentations">
+<div color="#cccccc" created="20141130044228188" creator="lh3" modified="20160822124518574" modifier="lh3" tags="TableOfContents" title="Library Documentations">
 <pre>&lt;&lt;list-links &quot;[tag[Library Documentations]]&quot;&gt;&gt;</pre>
 </div>
-<div caption="{{$:/language/SideBar/Contents/Caption}}" created="20141130033948669" creator="lh3" list-before="$:/core/ui/SideBar/Open" modified="20141130064158961" modifier="lh3" tags="$:/tags/SideBar" title="TableOfContents" type="text/vnd.tiddlywiki">
+<div caption="{{$:/language/SideBar/Contents/Caption}}" color="#cccccc" created="20141130033948669" creator="lh3" list-before="$:/core/ui/SideBar/Open" modified="20160822124524022" modifier="lh3" tags="$:/tags/SideBar" title="TableOfContents" type="text/vnd.tiddlywiki">
 <pre>&lt;div class=&quot;tc-table-of-contents&quot;&gt;
 &lt;&lt;toc &quot;TableOfContents&quot; sort[title]&gt;&gt;
 &lt;/div&gt;</pre>
