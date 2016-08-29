@@ -121,7 +121,7 @@ kson_node_t *kson_add_key(kson_node_t *p, long type, const char *key)
 	for (i = 0; i < (long)p->n; ++i) {
 		kson_node_t *q = p->v.child[i];
 		if (q->key && strcmp(q->key, key) == 0)
-			return q;
+			return q; // (q->type == type) ? q : NULL;
 	}
 	return kson_add_node(p, type, key);
 }
@@ -344,15 +344,15 @@ int main(int argc, char *argv[])
 		}
 	}
 	kson_destroy(kson);
-    kson = kson_create(KSON_TYPE_BRACE, 0);
-    kson_node_t *b = kson_add_key(kson, KSON_TYPE_BOOLEAN, "e");
-    kson_set(b, 0);
-    b = kson_add_key(kson, KSON_TYPE_STRING, "f");
-    kson_set(b, "0.0");
-    b = kson_add_key(kson, KSON_TYPE_BRACKET, "n");
-    b = kson_add_index(b, KSON_TYPE_NULL);
-    kson_format(kson);
-    kson_destroy(kson);
+	kson = kson_create(KSON_TYPE_BRACE, 0);
+	kson_node_t *b = kson_add_key(kson, KSON_TYPE_BOOLEAN, "e");
+	kson_set(b, 0);
+	b = kson_add_key(kson, KSON_TYPE_STRING, "f");
+	kson_set(b, "0.0");
+	b = kson_add_key(kson, KSON_TYPE_BRACKET, "n");
+	b = kson_add_index(b, KSON_TYPE_NULL);
+	kson_format(kson);
+	kson_destroy(kson);
 	return 0;
 }
 #endif
