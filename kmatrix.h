@@ -2,6 +2,7 @@
 #define KMATRIX_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #define KMATRIX_SIZE_MAX 50 
 
@@ -33,6 +34,9 @@ kmatrix_t km_copy( kmatrix_t src, kmatrix_t dst );
 
 // Clear content of matrix "mat" and return it
 kmatrix_t km_clear( kmatrix_t mat );
+
+// Verify it matrices "mat_1" and "mat_2" have the same values, inside a little tolerance
+bool km_equal( kmatrix_t mat_1, kmatrix_t mat_2 );
 
 // Get columns number for matrix "mat"
 size_t km_width( kmatrix_t mat );

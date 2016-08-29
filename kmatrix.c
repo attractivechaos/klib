@@ -82,6 +82,26 @@ kmatrix_t km_clear( kmatrix_t mat )
   return mat;
 }
 
+bool km_equal( kmatrix_t mat_1, kmatrix_t mat_2 )
+{
+  const double TOLERANCE = 0.0001;
+  
+  if( mat_1->n_rows != mat_2->n_rows ) return false;
+  if( mat_1->n_cols != mat_2->n_cols ) return false;
+  
+  for( size_t row = 0; row < mat_1->n_rows; row++ )
+  {
+    for( size_t col = 0; col < mat_1->n_cols; col++ )
+    {
+      double diff = mat_1->data[ row * mat_1->n_cols + col ] - mat_2->data[ row * mat_2->n_cols + col ];
+      
+      if( fabs( diff ) > TOLERANCE ) return false;
+    }
+  }
+  
+  return true;
+}
+
 size_t km_width( kmatrix_t mat )
 {
   if( mat == NULL ) return 0;
@@ -128,25 +148,6 @@ void km_set_data( kmatrix_t mat, double* data );
       mat->data[ col * mat->n_rows + row ] = data[ row * mat->n_cols + col ];
   }
 }
-
-/*const double tolerance = 0.0001;
-bool km_equal( kmatrix_t mat_1, kmatrix_t mat_2 )
-{
-  if( mat_1->n_rows != mat_2->n_rows ) return false;
-  if( mat_1->n_cols != mat_2->n_cols ) return false;
-  
-  for( size_t row = 0; row < mat_1->n_rows; row++ )
-  {
-    for( size_t col = 0; col < mat_1->n_cols; col++ )
-    {
-      double diff = mat_1->data[ row * mat_1->n_cols + col ] - mat_2->data[ row * mat_2->n_cols + col ];
-      
-      if( fabs( diff ) > tolerance ) return false;
-    }
-  }
-  
-  return true;
-}*/
 
 double km_get_at( kmatrix_t mat, size_t row, size_t col )
 {
@@ -342,5 +343,5 @@ void km_print( kmatrix_t mat )
       printf( " %.6f", mat->data[ row * mat->n_cols + col ] );
     printf( " ]\n" );
   }
-   printf( "\n" );
+  printf( "\n" );
 }
