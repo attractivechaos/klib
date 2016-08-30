@@ -150,7 +150,7 @@ double km_get_at( kmatrix_t mat, size_t row, size_t col )
 
   if( row >= mat->n_rows || col >= mat->n_cols ) return 0.0;
 
-  return mat->data[ row * mat->n_cols + col ];
+  return mat->data[ col * mat->n_rows + row ];
 }
 
 void km_set_at( kmatrix_t mat, size_t row, size_t col, double value )
@@ -159,7 +159,7 @@ void km_set_at( kmatrix_t mat, size_t row, size_t col, double value )
 
   if( row >= mat->n_rows || col >= mat->n_cols ) return;
 
-  mat->data[ row * mat->n_cols + col ] = value;
+  mat->data[ col * mat->n_rows + row ] = value;
 }
 
 kmatrix_t km_resize( kmatrix_t mat, size_t n_rows, size_t n_cols )
