@@ -34,12 +34,12 @@ kmatrix_t km_create( double* data, size_t n_rows, size_t n_cols )
   new_mat->n_cols = n_cols;
 
   if( data == NULL ) km_clear( new_mat );
-  else km_set_data( new_mat, data )
+  else km_set_data( new_mat, data );
 
   return new_mat;
 }
 
-kmatrix_t km_create_square( size_t size, double type )
+kmatrix_t km_create_square( size_t size, char type )
 {
   kmatrix_t new_sq_mat = km_create( NULL, size, size );
 
@@ -109,7 +109,7 @@ size_t km_width( kmatrix_t mat )
   return mat->n_cols;
 }
 
-size_t km_height( kmatrix_t mat );
+size_t km_height( kmatrix_t mat )
 {
   if( mat == NULL ) return 0;
 
@@ -120,28 +120,23 @@ double* km_get_data( kmatrix_t mat, double* buf )
 {
   if( mat == NULL ) return NULL;
 
-  if( buf != NULL )
+  if( buf == NULL ) return NULL;
+
+  for( size_t row = 0; row < mat->n_rows; row++ )
   {
-    //memcpy( buf, mat->data, mat->n_rows * mat->n_cols * sizeof(double) );
-    for( size_t row = 0; row < mat->n_rows; row++ )
-    {
-      for( size_t col = 0; col < mat->n_cols; col++ )
-        buf[ row * mat->n_cols + col ] = mat->data[ col * mat->n_rows + row ];
-    }
-    
-    return buf;
+    for( size_t col = 0; col < mat->n_cols; col++ )
+      buf[ row * mat->n_cols + col ] = mat->data[ col * mat->n_rows + row ];
   }
-  
-  return mat->data;
+    
+  return buf;
 }
 
-void km_set_data( kmatrix_t mat, double* data );
+void km_set_data( kmatrix_t mat, double* data )
 {
   if( mat == NULL ) return;
 
-  if( buf == NULL ) return;
+  if( data == NULL ) return;
   
-  //memcpy( mat->data, data, mat->n_rows * mat->n_cols * sizeof(double) );
   for( size_t col = 0; col < mat->n_cols; col++ )
   {
     for( size_t row = 0; row < mat->n_rows; row++ )
@@ -172,7 +167,7 @@ kmatrix_t km_resize( kmatrix_t mat, size_t n_rows, size_t n_cols )
   double aux[ KMATRIX_SIZE_MAX * KMATRIX_SIZE_MAX ];
   
   if( mat == NULL )
-    mat = Matrices_Create( NULL, n_rows, n_cols );
+    mat = km_create( NULL, n_rows, n_cols );
   else 
   {
     if( mat->n_rows * mat->n_cols < n_rows * n_cols )
@@ -182,9 +177,9 @@ kmatrix_t km_resize( kmatrix_t mat, size_t n_rows, size_t n_cols )
     
     memset( mat->data, 0, n_rows * n_cols * sizeof(double) );
     
-    for( size_t col = 0; col < n_cols; col++ )
+    for( size_t col = 0; col < mat->n_cols; col++ )
     {
-      for( size_t row = 0; row < n_rows; row++ )
+      for( size_t row = 0; row < mat->n_rows; row++ )
         mat->data[ col * n_rows + row ] = aux[ col * mat->n_rows + row ];
     }
     
@@ -284,13 +279,13 @@ kmatrix_t km_trans( kmatrix_t mat, kmatrix_t rslt )
 
   rslt->n_rows = mat->n_cols;
   rslt->n_cols = mat->n_rows;
-
+  
   for( size_t row = 0; row < rslt->n_rows; row++ )
   {
     for( size_t col = 0; col < rslt->n_cols; col++ )
-      aux[ col * mat->n_cols + row ] = mat->data[ row * mat->n_cols + col ];
+      aux[ col * rslt->n_rows + row ] = mat->data[ row * mat->n_rows + col ];
   }
-
+  
   memcpy( rslt->data, aux, rslt->n_rows * rslt->n_cols * sizeof(double) );
 
   return rslt;
@@ -313,16 +308,11 @@ kmatrix_t km_inv( kmatrix_t mat, kmatrix_t rslt )
   
     memcpy( rslt->data, mat->data, mat->n_rows * mat->n_cols * sizeof(double) );
   }
-  
+
   dgetrf_( (int*) &(rslt->n_rows), (int*) &(rslt->n_cols), rslt->data, (int*) &(rslt->n_rows), pivot, &info );
   
   if( info != 0 ) return NULL;
-  
-  for( size_t pivot_idx = 0; pivot_idx < rslt->n_rows; pivot_idx++ )
-  {
-    if( aux[ pivot_idx * rslt->n_rows + pivot_idx ] == 0.0 ) return NULL;
-  }
-  
+
   int n_works = rslt->n_rows * rslt->n_cols;
   dgetri_( (int*) &(rslt->n_rows), rslt->data, (int*) &(rslt->n_rows), pivot, aux, &n_works, &info );
   
@@ -340,7 +330,7 @@ void km_print( kmatrix_t mat )
   {
     printf( "[" );
     for( size_t col = 0; col < mat->n_cols; col++ )
-      printf( " %.6f", mat->data[ row * mat->n_cols + col ] );
+      printf( " %.6f", mat->data[ col * mat->n_rows + row ] );
     printf( " ]\n" );
   }
   printf( "\n" );

@@ -1,7 +1,7 @@
 #ifndef KMATRIX_H
 #define KMATRIX_H
 
-#include <stdint.h>
+#include <stdlib.h>
 #include <stdbool.h>
 
 #define KMATRIX_SIZE_MAX 50 
@@ -59,7 +59,7 @@ void km_set_at( kmatrix_t mat, size_t row, size_t col, double val );
 
 // Resize matrix "mat" to "n_rows" rows and "n_cols" columns
 // Save result on "rslt" and return it                                
-kmatrix_t km_resize( kmatrix_t mat, size_t n_rows, size_t n_cols, kmatrix_t rslt );  
+kmatrix_t km_resize( kmatrix_t mat, size_t n_rows, size_t n_cols );  
 
 // Multiply matrix "mat" by scalar "factor"
 // Save result on "rslt" and return it 
