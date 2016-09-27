@@ -220,6 +220,14 @@ static const double __ac_HASH_UPPER = 0.77;
 			kfree(h);													\
 		}																\
 	}																	\
+    SCOPE void kh_write_##name(kh_##name##_t *h, const char *path) {\
+        FILE *fp = fopen(path, "wb");\
+        fwrite(h, 1, sizeof(*h), fp);\
+        fwrite(h->flags, 1, sizeof(*h->flags) * h->n_buckets, fp);\
+        fwrite(h->keys, 1, sizeof(*h->keys) * h->n_buckets, fp);\
+        fwrite(h->vals, 1, sizeof(*h->vals) * h->n_buckets, fp);\
+        fclose(fp);\
+    }\
 	SCOPE void kh_clear_##name(kh_##name##_t *h)						\
 	{																	\
 		if (h && h->flags) {											\
