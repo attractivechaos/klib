@@ -30,8 +30,8 @@ kson_node_t *kson_parse_recur(const char **json, int *error)
 			while (*p != del && *error == KSON_OK) {
 				kson_node_t *v = kson_parse_recur(&p, error);
 				if (v) {
-					u->v.child = (kson_node_t **) realloc(u->v.child, (u->n++) * sizeof(kson_node_t *));
-					u->v.child[u->n - 1] = v;
+					u->v.child = (kson_node_t **) realloc(u->v.child, (u->n + 1) * sizeof(kson_node_t *));
+					u->v.child[u->n++] = v;
 					if (del == ']') v->key = 0;
 				}
 				if (*p == ',') ++p;
@@ -107,8 +107,8 @@ kson_node_t *kson_create(long type, const char *key)
 
 kson_node_t *kson_add_node(kson_node_t *p, long type, const char *key)
 {
-	if (p->n == 0) p->v.child = 0;
-	p->v.child = (kson_node_t **) realloc(p->v.child, (p->n++) * sizeof(kson_node_t *));
+	if (p->n++ == 0) p->v.child = 0;
+	p->v.child = (kson_node_t **) realloc(p->v.child, p->n * sizeof(kson_node_t *));
 	p->v.child[p->n - 1] = kson_create(type, key);
 	if (p->v.child[p->n - 1]->type == KSON_TYPE_NULL) kson_set(p->v.child[p->n - 1], 0);
 	return p->v.child[p->n - 1];
