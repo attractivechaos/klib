@@ -124,14 +124,14 @@
 		kmp_free(name, kl->mp, p);										\
 		return 0;														\
 	}																	\
-	static inline kltype_t *kl_unshiftp_##name(kl_##name##_t *kl) {		\
+	SCOPE kltype_t *kl_unshiftp_##name(kl_##name##_t *kl) {				\
 		kl1_##name *q, *p = kmp_alloc(name, kl->mp);					\
 		if (!p) return 0;												\
 		q = kl->head; p->next = q; kl->head = p;						\
 		++kl->size;														\
 		return &p->data;												\
 	}																	\
-    static inline int kl_delete_after_##name(kl_##name##_t *kl,			\
+    SCOPE int kl_delete_after_##name(kl_##name##_t *kl,					\
                                                 kl1_##name *c,			\
 												kltype_t *d) {			\
 		kl1_##name *p;													\
@@ -143,7 +143,7 @@
 		kmp_free(name, kl->mp, p);										\
 		return 0;														\
 	}																	\
-	static inline kltype_t *kl_insertp_after_##name(kl_##name##_t *kl,	\
+	SCOPE kltype_t *kl_insertp_after_##name(kl_##name##_t *kl,			\
 													kl1_##name *c) {	\
 		if (c->next == 0) return 0;										\
 		kl1_##name *p = kmp_alloc(name, kl->mp);						\
