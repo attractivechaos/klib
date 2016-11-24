@@ -6,7 +6,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 find_package(Threads REQUIRED)
 find_package(Check REQUIRED)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --std=c99 -Wall -Wextra -Werror -pedantic -Wstrict-prototypes -Wold-style-definition")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --std=c99 -Wall -Wextra -Werror -pedantic -Wstrict-prototypes -Wold-style-definition -Wc++-compat")
 
 add_executable(klib-test main klist_tests)
 target_include_directories(klib-test PUBLIC ${CHECK_INCLUDE_DIRS} ../)
