@@ -158,13 +158,15 @@ void kt_forpool_destroy(void *_fp)
 void kt_forpool(void *_fp, void (*func)(void*,long,int), void *data, long n)
 {
 	kt_forpool_t *fp = (kt_forpool_t*)_fp;
-	int i;
-	fp->n = n, fp->func = func, fp->data = data, fp->n_pending = fp->n_threads;
-	for (i = 0; i < fp->n_threads; ++i) fp->w[i].i = i, fp->w[i].action = 1;
-	pthread_mutex_lock(&fp->mutex);
-	pthread_cond_broadcast(&fp->cv_s);
-	while (fp->n_pending) pthread_cond_wait(&fp->cv_m, &fp->mutex);
-	pthread_mutex_unlock(&fp->mutex);
+	long i;
+	if (fp && fp->n_threads > 1) {
+		fp->n = n, fp->func = func, fp->data = data, fp->n_pending = fp->n_threads;
+		for (i = 0; i < fp->n_threads; ++i) fp->w[i].i = i, fp->w[i].action = 1;
+		pthread_mutex_lock(&fp->mutex);
+		pthread_cond_broadcast(&fp->cv_s);
+		while (fp->n_pending) pthread_cond_wait(&fp->cv_m, &fp->mutex);
+		pthread_mutex_unlock(&fp->mutex);
+	} else for (i = 0; i < n; ++i) func(data, i, 0);
 }
 
 /*****************
