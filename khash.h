@@ -210,7 +210,10 @@ static const double __ac_HASH_UPPER = 0.77;
 
 #define __KHASH_IMPL(name, SCOPE, khkey_t, khval_t, kh_is_map, __hash_func, __hash_equal) \
 	SCOPE kh_##name##_t *kh_init_##name(void) {							\
-		return (kh_##name##_t*)kcalloc(1, sizeof(kh_##name##_t));		\
+		kh_##name##_t* h = (kh_##name##_t*)kcalloc(1, sizeof(kh_##name##_t)); \
+		h->flags = (khint32_t *)kmalloc(sizeof(khint32_t));             \
+		memset(h->flags, 0xaa, sizeof(khint32_t));                      \
+		return h;                                                       \
 	}																	\
 	SCOPE void kh_destroy_##name(kh_##name##_t *h)						\
 	{																	\
