@@ -366,7 +366,7 @@ static const double __ac_HASH_UPPER = 0.77;
         __ac_fw(map->upper_bound, fp);                                  \
         fwrite(map->flags, __ac_fsize(map->n_buckets), sizeof(khint32_t), fp);\
         fwrite(map->keys, map->n_buckets, sizeof(*map->keys), fp);      \
-        fwrite(map->vals, map->n_buckets, sizeof(*map->vals), fp);      \
+        if(is_map) fwrite(map->vals, map->n_buckets, sizeof(*map->vals), fp);      \
         fclose(fp);                                                     \
     }                                                                   \
     SCOPE kh_##name##_t *khash_load_##name(const char *path)            \
@@ -379,10 +379,10 @@ static const double __ac_HASH_UPPER = 0.77;
         fread(&ret->upper_bound, 1, sizeof(ret->upper_bound), fp);      \
         ret->flags = malloc(sizeof(*ret->flags) * __ac_fsize(ret->n_buckets));\
         ret->keys =  malloc(sizeof(khkey_t) * ret->n_buckets);          \
-        ret->vals =  malloc(sizeof(khval_t) * ret->n_buckets);          \
+        ret->vals =  is_map ? malloc(sizeof(khval_t) * ret->n_buckets) : 0;          \
         fread(ret->flags, __ac_fsize(ret->n_buckets), sizeof(*ret->flags), fp);\
         fread(ret->keys, 1, ret->n_buckets * sizeof(*ret->keys), fp);   \
-        fread(ret->vals, 1, ret->n_buckets * sizeof(*ret->vals), fp);   \
+        if(is_map) fread(ret->vals, 1, ret->n_buckets * sizeof(*ret->vals), fp);   \
         fclose(fp);                                                     \
         return ret;                                                     \
     }
