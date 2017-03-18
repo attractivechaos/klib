@@ -366,23 +366,23 @@ static const double __ac_HASH_UPPER = 0.77;
         __ac_fw(map->upper_bound, fp);                                  \
         fwrite(map->flags, __ac_fsize(map->n_buckets), sizeof(khint32_t), fp);\
         fwrite(map->keys, map->n_buckets, sizeof(*map->keys), fp);      \
-        if(is_map) fwrite(map->vals, map->n_buckets, sizeof(*map->vals), fp);      \
+        if(kh_is_map) fwrite(map->vals, map->n_buckets, sizeof(*map->vals), fp);      \
         fclose(fp);                                                     \
     }                                                                   \
     SCOPE kh_##name##_t *khash_load_##name(const char *path)            \
     {                                                                   \
-        kh_##name##_t *ret = calloc(1, sizeof(kh_##name##_t));          \
+        kh_##name##_t *ret = (kh_##name##_t *)calloc(1, sizeof(kh_##name##_t));          \
         FILE *fp = fopen(path, "rb");                                   \
         fread(&ret->n_buckets, 1, sizeof(ret->n_buckets), fp);          \
         fread(&ret->n_occupied, 1, sizeof(ret->n_occupied), fp);        \
         fread(&ret->size, 1, sizeof(ret->size), fp);                    \
         fread(&ret->upper_bound, 1, sizeof(ret->upper_bound), fp);      \
-        ret->flags = malloc(sizeof(*ret->flags) * __ac_fsize(ret->n_buckets));\
-        ret->keys =  malloc(sizeof(khkey_t) * ret->n_buckets);          \
-        ret->vals =  is_map ? malloc(sizeof(khval_t) * ret->n_buckets) : 0;          \
+        ret->flags = (khint32_t *)malloc(sizeof(*ret->flags) * __ac_fsize(ret->n_buckets));\
+        ret->keys =  (khkey_t *)malloc(sizeof(khkey_t) * ret->n_buckets);          \
+        ret->vals =  kh_is_map ? (khval_t *)malloc(sizeof(khval_t) * ret->n_buckets) : 0;          \
         fread(ret->flags, __ac_fsize(ret->n_buckets), sizeof(*ret->flags), fp);\
         fread(ret->keys, 1, ret->n_buckets * sizeof(*ret->keys), fp);   \
-        if(is_map) fread(ret->vals, 1, ret->n_buckets * sizeof(*ret->vals), fp);   \
+        if(kh_is_map) fread(ret->vals, 1, ret->n_buckets * sizeof(*ret->vals), fp);   \
         fclose(fp);                                                     \
         return ret;                                                     \
     }
