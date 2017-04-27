@@ -220,6 +220,29 @@ static inline int kputw(int c, kstring_t *s)
 	return 0;
 }
 
+
+static inline int kputw_(int c, kstring_t *s)
+{
+	char buf[16];
+	int i, l = 0;
+	unsigned int x = c;
+	if (c < 0) x = -x;
+	do { buf[l++] = x%10 + '0'; x /= 10; } while (x > 0);
+	if (c < 0) buf[l++] = '-';
+	if (s->l + l + 1 >= s->m) {
+		char *tmp;
+		s->m = s->l + l + 2;
+		kroundup32(s->m);
+		if ((tmp = (char*)realloc(s->s, s->m)))
+			s->s = tmp;
+		else
+			return EOF;
+	}
+	for (i = l - 1; i >= 0; --i) s->s[s->l++] = buf[i];
+	return 0;
+}
+
+
 static inline int kputuw(unsigned c, kstring_t *s)
 {
 	char buf[16];
@@ -240,6 +263,29 @@ static inline int kputuw(unsigned c, kstring_t *s)
 	s->s[s->l] = 0;
 	return 0;
 }
+
+
+static inline int kputuw_(unsigned c, kstring_t *s)
+{
+	char buf[16];
+	int l, i;
+	unsigned x;
+	if (c == 0) return kputc('0', s);
+	for (l = 0, x = c; x > 0; x /= 10) buf[l++] = x%10 + '0';
+	if (s->l + l + 1 >= s->m) {
+		char *tmp;
+		s->m = s->l + l + 2;
+		kroundup32(s->m);
+		if ((tmp = (char*)realloc(s->s, s->m)))
+			s->s = tmp;
+		else
+			return EOF;
+	}
+	for (i = l - 1; i >= 0; --i) s->s[s->l++] = buf[i];
+	s->s[s->l] = 0;
+	return 0;
+}
+
 
 static inline int kputl(long c, kstring_t *s)
 {
@@ -262,6 +308,30 @@ static inline int kputl(long c, kstring_t *s)
 	s->s[s->l] = 0;
 	return 0;
 }
+
+
+static inline int kputl_(long c, kstring_t *s)
+{
+	char buf[32];
+	int i, l = 0;
+	unsigned long x = c;
+	if (c < 0) x = -x;
+	do { buf[l++] = x%10 + '0'; x /= 10; } while (x > 0);
+	if (c < 0) buf[l++] = '-';
+	if (s->l + l + 1 >= s->m) {
+		char *tmp;
+		s->m = s->l + l + 2;
+		kroundup32(s->m);
+		if ((tmp = (char*)realloc(s->s, s->m)))
+			s->s = tmp;
+		else
+			return EOF;
+	}
+	for (i = l - 1; i >= 0; --i) s->s[s->l++] = buf[i];
+	return 0;
+}
+
+/*
 
 /*
  * Returns 's' split by delimiter, with *n being the number of components;
