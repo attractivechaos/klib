@@ -1,6 +1,6 @@
-#Klib: a Generic Library in C
+# Klib: a Generic Library in C
 
-##<a name="overview"></a>Overview
+## <a name="overview"></a>Overview
 
 Klib is a standalone and lightweight C library distributed under [MIT/X11
 license][1]. Most components are independent of external libraries, except the
@@ -16,7 +16,7 @@ languages, in terms of both speed and memory use.
 A new documentation is available [here](http://attractivechaos.github.io/klib/)
 which includes most information in this README file.
 
-####Common components
+#### Common components
 
 * [khash.h][khash]: generic hash table based on [double hashing][2].
 * [kbtree.h][kbtree]: generic search tree based on [B-tree][3].
@@ -27,7 +27,7 @@ which includes most information in this README file.
 * kstring.{h,c}: basic string library.
 * kmath.{h,c}: numerical routines including [MT19937-64][13] [pseudorandom generator][14], basic [nonlinear programming][15] and a few special math functions.
 
-####Components for more specific use cases
+#### Components for more specific use cases
 
 * ksa.c: constructing [suffix arrays][16] for strings with multiple sentinels, based on a revised [SAIS algorithm][17].
 * knetfile.{h,c}: random access to remote files on HTTP or FTP.
@@ -37,7 +37,7 @@ which includes most information in this README file.
 * knhx.{h,c}: [Newick tree format][20] parser.
 
 
-##<a name="methodology"></a>Methodology
+## <a name="methodology"></a>Methodology
 
 For the implementation of generic [containers][21], klib extensively uses C
 macros. To use these data structures, we usually need to instantiate methods by
@@ -176,7 +176,7 @@ compiling speed and huge binary size when STL/boost is in use. Klib is much
 better in this respect due to its small code size and component independency.
 Inserting several hundreds lines of code won't make compiling obviously slower.
 
-##<a name="resources"></a>Resources
+## <a name="resources"></a>Resources
 
 * Library documentation, if present, is available in the header files. Examples
 can be found in the [test/][24] directory.
