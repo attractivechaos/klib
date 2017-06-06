@@ -319,19 +319,16 @@ static const double __ac_HASH_UPPER = 0.77;
 		{																\
 			khint_t k, i, site, last, mask = h->n_buckets - 1, step = 0; \
 			x = site = h->n_buckets; k = __hash_func(key); i = k & mask; \
-			if (__ac_isempty(h->flags, i)) x = i; /* for speed up */	\
-			else {														\
-				last = i; \
-				while (!__ac_isempty(h->flags, i) && (__ac_isdel(h->flags, i) || !__hash_equal(h->keys[i], key))) { \
-					if (__ac_isdel(h->flags, i)) site = i;				\
-					i = (i + (++step)) & mask; \
-					if (i == last) { x = site; break; }					\
-				}														\
-				if (x == h->n_buckets) {								\
-					if (__ac_isempty(h->flags, i) && site != h->n_buckets) x = site; \
-					else x = i;											\
-				}														\
-			}															\
+			last = i; \
+			while (!__ac_isempty(h->flags, i) && (__ac_isdel(h->flags, i) || !__hash_equal(h->keys[i], key))) { \
+				if (__ac_isdel(h->flags, i)) site = i;				\
+				i = (i + (++step)) & mask; \
+				if (i == last) { x = site; break; }					\
+			}														\
+			if (x == h->n_buckets) {								\
+				if (__ac_isempty(h->flags, i) && site != h->n_buckets) x = site; \
+				else x = i;											\
+			}														\
 		}																\
 		if (__ac_isempty(h->flags, x)) { /* not present at all */		\
 			h->keys[x] = key;											\
