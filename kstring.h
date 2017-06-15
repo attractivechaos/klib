@@ -264,6 +264,7 @@ static inline int kputuw(unsigned c, kstring_t *s)
 	return 0;
 }
 
+#ifndef HAS_KPUTUW__
 #define HAS_KPUTUW__
 static inline int kputuw_(unsigned c, kstring_t *s)
 {
@@ -284,6 +285,7 @@ static inline int kputuw_(unsigned c, kstring_t *s)
 	for (i = l - 1; i >= 0; --i) s->s[s->l++] = buf[i];
 	return 0;
 }
+#endif
 
 
 static inline int kputl(long c, kstring_t *s)
@@ -329,8 +331,6 @@ static inline int kputl_(long c, kstring_t *s)
 	for (i = l - 1; i >= 0; --i) s->s[s->l++] = buf[i];
 	return 0;
 }
-
-/*
 
 /*
  * Returns 's' split by delimiter, with *n being the number of components;
