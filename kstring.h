@@ -264,7 +264,7 @@ static inline int kputuw(unsigned c, kstring_t *s)
 	return 0;
 }
 
-
+#define HAS_KPUTUW__
 static inline int kputuw_(unsigned c, kstring_t *s)
 {
 	char buf[16];
