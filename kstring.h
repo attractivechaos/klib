@@ -282,7 +282,6 @@ static inline int kputuw_(unsigned c, kstring_t *s)
 			return EOF;
 	}
 	for (i = l - 1; i >= 0; --i) s->s[s->l++] = buf[i];
-	s->s[s->l] = 0;
 	return 0;
 }
 
