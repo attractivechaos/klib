@@ -530,6 +530,117 @@ int ksw_global(int qlen, const uint8_t *query, int tlen, const uint8_t *target, 
 	return score;
 }
 
+
+/**
+ * Global alignment with the ability to control which start/end gaps
+ * are penalised for.  Otherwise identical to ksw_global.
+ *
+ * @param s_q   Boolean: whether to count gaps at start of query
+ * @param e_q   Boolean: whether to count gaps at end   of query
+ * @param s_t   Boolean: whether to count gaps at start of target
+ * @param e_t   Boolean: whether to count gaps at end   of target
+ */
+int ksw_global_end(int qlen, const uint8_t *query, int tlen, const uint8_t *target, int m, const int8_t *mat,
+		   int gapo, int gape, int w, int *n_cigar_, uint32_t **cigar_, int s_q, int e_q, int s_t, int e_t)
+{
+	eh_t *eh;
+	int8_t *qp; // query profile
+	int i, j, k, gapoe = gapo + gape, score, n_col;
+	uint8_t *z; // backtrack matrix; in each cell: f<<4|e<<2|h; in principle, we can halve the memory, but backtrack will be a little more complex
+	if (n_cigar_) *n_cigar_ = 0;
+	// allocate memory
+	if (w == 0) w = qlen > tlen ? qlen : tlen;
+	n_col = qlen < 2*w+1? qlen : 2*w+1; // maximum #columns of the backtrack matrix
+	z = malloc(n_col * tlen);
+	qp = malloc(qlen * m);
+	eh = calloc(qlen + 1, 8);
+	// generate the query profile
+	for (k = i = 0; k < m; ++k) {
+		const int8_t *p = &mat[k * m];
+		for (j = 0; j < qlen; ++j) qp[i++] = p[query[j]];
+	}
+	// fill the first row
+	eh[0].h = 0; eh[0].e = MINUS_INF;
+	for (j = 1; j <= qlen && j <= w; ++j)
+		eh[j].h = s_t ? -(gapo + gape * j) : 0, eh[j].e = MINUS_INF;
+	for (; j <= qlen; ++j) eh[j].h = eh[j].e = MINUS_INF; // everything is -inf outside the band
+	// DP loop
+	int32_t beg, best_score = MINUS_INF, best_i = 0;
+	for (i = 0; LIKELY(i < tlen); ++i) { // target sequence is in the outer loop
+		int32_t f = MINUS_INF, h1, end;
+		int8_t *q = &qp[target[i] * qlen];
+		uint8_t *zi = &z[i * n_col];
+		beg = i > w? i - w : 0;
+		end = i + w + 1 < qlen? i + w + 1 : qlen; // only loop through [beg,end) of the query sequence
+		h1 = beg == 0? (s_q ? -(gapo + gape * (i + 1)) : 0) : MINUS_INF;
+		for (j = beg; LIKELY(j < end); ++j) {
+			// This loop is organized in a similar way to ksw_extend() and ksw_sse2(), except:
+			// 1) not checking h>0; 2) recording direction for backtracking
+			eh_t *p = &eh[j];
+			int32_t h = p->h, e = p->e;
+			uint8_t d; // direction
+			p->h = h1;
+			h += q[j];
+			d = h > e? 0 : 1;
+			h = h > e? h : e;
+			d = h > f? d : 2;
+			h = h > f? h : f;
+			h1 = h;
+			h -= gapoe;
+			e -= gape;
+			d |= e > h? 1<<2 : 0;
+			e = e > h? e : h;
+			p->e = e;
+			f -= gape;
+			d |= f > h? 2<<4 : 0; // if we want to halve the memory, use one bit only, instead of two
+			f = f > h? f : h;
+			zi[j - beg] = d; // z[i,j] keeps h for the current cell and e/f for the next cell
+		}
+		eh[end].h = h1; eh[end].e = MINUS_INF;
+		if (best_score < eh[end].h)
+			best_score = eh[end].h, best_i = i;
+	}
+	score = eh[qlen].h;
+	i = tlen - 1; k = (i + w + 1 < qlen? i + w + 1 : qlen) - 1; // (i,k) points to the last cell
+	int n_cigar = 0, m_cigar = 0;
+	uint32_t *cigar = NULL;
+	if (!e_t) {
+		if (score < best_score) {
+			score = best_score;
+			if (best_i < i && n_cigar_ && cigar_)
+				cigar = push_cigar(&n_cigar, &m_cigar, cigar, 2, i - best_i);
+			i = best_i;
+		}
+	}
+	if (!e_q) {
+		for (j = beg; j <= qlen; j++) {
+			if (score < eh[j].h) {
+				score = eh[j].h;
+				if (j < k && n_cigar_ && cigar_)
+					cigar = push_cigar(&n_cigar, &m_cigar, cigar, 1, k-j);
+				k = j;
+			}
+		}
+	}
+	if (n_cigar_ && cigar_) { // backtrack
+		int which = 0;
+		uint32_t tmp;
+		while (i >= 0 && k >= 0) {
+			which = z[i * n_col + (k - (i > w? i - w : 0))] >> (which<<1) & 3;
+			if (which == 0)      cigar = push_cigar(&n_cigar, &m_cigar, cigar, 0, 1), --i, --k;
+			else if (which == 1) cigar = push_cigar(&n_cigar, &m_cigar, cigar, 2, 1), --i;
+			else                 cigar = push_cigar(&n_cigar, &m_cigar, cigar, 1, 1), --k;
+		}
+		if (i >= 0) cigar = push_cigar(&n_cigar, &m_cigar, cigar, 2, i + 1);
+		if (k >= 0) cigar = push_cigar(&n_cigar, &m_cigar, cigar, 1, k + 1);
+		for (i = 0; i < n_cigar>>1; ++i) // reverse CIGAR
+			tmp = cigar[i], cigar[i] = cigar[n_cigar-1-i], cigar[n_cigar-1-i] = tmp;
+		*n_cigar_ = n_cigar, *cigar_ = cigar;
+	}
+	free(eh); free(qp); free(z);
+	return score;
+}
+
 /*******************************************
  * Main function (not compiled by default) *
  *******************************************/
@@ -629,5 +740,121 @@ int main(int argc, char *argv[])
 	kseq_destroy(kst); gzclose(fpt);
 	kseq_destroy(ksq); gzclose(fpq);
 	return 0;
+}
+#endif
+
+//-----------------------------------------------------------------------------
+// JKB command line test harness
+#ifdef TEST_MAIN
+#include <string.h>
+#include <stdio.h>
+#include <assert.h>
+
+uint8_t W128[128][128];
+
+void init_W128(void) {
+    int i;
+
+    memset(&W128[0][0], -1, 128*128*sizeof(W128[0][0]));
+    for (i = 0; i < 8; i++)
+	W128["ACGTacgt"[i]]["ACGTacgt"[i]] = 2;
+}
+
+void init_W128_score(int mis, int mat) {
+  int i, j;
+
+  for (i = 0; i < 128; i++)
+    for (j = 0; j < 128; j++)
+      W128[i][j] = mis;
+  for (i = 0; i < 16; i++)
+    W128["ACGTacgtacgtACGT"[i]]["ACGTacgtACGTacgt"[i]] = mat;
+
+  for (i = 0; i < 128; i++)
+    W128['n'][i] = W128['n'][i] = W128[i]['N'] = W128[i]['n'] = 0;
+}
+
+// From htslib/hts.h
+#define BAM_CMATCH      0
+#define BAM_CINS        1
+#define BAM_CDEL        2
+#define BAM_CREF_SKIP   3
+#define BAM_CSOFT_CLIP  4
+#define BAM_CHARD_CLIP  5
+#define BAM_CPAD        6
+#define BAM_CEQUAL      7
+#define BAM_CDIFF       8
+#define BAM_CBACK       9
+
+#define BAM_CIGAR_STR   "MIDNSHP=XB"
+#define BAM_CIGAR_SHIFT 4
+#define BAM_CIGAR_MASK  0xf
+
+int main(int argc, char **argv) {
+    char *A = argv[1];
+    char *B = argv[2];
+    int s1 = atoi(argv[3]);
+    int s2 = atoi(argv[4]);
+    int e1 = atoi(argv[5]);
+    int e2 = atoi(argv[6]);
+    int score;
+    int G = atoi(argv[7]); // open
+    int H = atoi(argv[8]); // extend
+    int mis = atoi(argv[9]);
+    int mat = atoi(argv[10]);
+    int band = atoi(argv[11]);
+
+    init_W128_score(mis,mat);
+
+    uint32_t *cigar;
+    int ncigar = 0;
+
+    int len_A = strlen(A);
+    int len_B = strlen(B);
+    //score = ksw_global(len_A, A, len_B, B, 128, (uint8_t *)W128, G, H, band, &ncigar, &cigar);
+    score = ksw_global_end(len_A, A, len_B, B, 128, (uint8_t *)W128, G, H, band, &ncigar, &cigar, s1, e1, s2, e2);
+
+    printf("Score=%d: ", score);
+    int i, j, k;
+    for (i = 0; i < ncigar; i++) {
+	    printf("%d%c ", cigar[i]>>4, "MIDNSHP=XB"[cigar[i]&0xf]);
+    }
+    printf("\n");
+
+    i = j = k = 0;
+    while (i < len_A || j < len_B) {
+	    int op, oplen = 0;
+	    if (!oplen) {
+		    if (k >= ncigar)
+			    break; // truncated through band?
+		    op = cigar[k] & BAM_CIGAR_MASK;
+		    oplen = cigar[k++] >> BAM_CIGAR_SHIFT;
+	    }
+
+	    while (oplen--) {
+		    switch (op) {
+		    case BAM_CMATCH:
+			    printf("%c %c\n", A[i], B[j]);
+			    i++, j++;
+			    break;
+
+		    case BAM_CDEL: // in B only
+			    printf("- %c\n", B[j]);
+			    j++;
+			    break;
+
+		    case BAM_CINS: // in A only
+			    printf("%c -\n", A[i]);
+			    i++;
+			    break;
+
+		    default:
+			    abort();
+		    }
+	    }
+    }
+
+    free(cigar);
+
+    return 0;
 }
 #endif
