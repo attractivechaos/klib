@@ -616,11 +616,11 @@ int ksw_global_end(int qlen, const uint8_t *query, int tlen, const uint8_t *targ
 		for (j = beg; j <= qlen; j++) {
 			if (score < eh[j].h) {
 				score = eh[j].h;
-				if (j < k && n_cigar_ && cigar_)
-					cigar = push_cigar(&n_cigar, &m_cigar, cigar, 1, k-j);
 				k = j;
 			}
 		}
+		if (k < qlen-1 && n_cigar_ && cigar_)
+		    cigar = push_cigar(&n_cigar, &m_cigar, cigar, 1, qlen - k -1);
 	}
 	if (n_cigar_ && cigar_) { // backtrack
 		int which = 0;
