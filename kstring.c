@@ -38,7 +38,7 @@ char *kstrtok(const char *str, const char *sep, ks_tokaux_t *aux)
 {
 	const char *p, *start;
 	if (sep) { // set up the table
-		if (str == 0 && (aux->tab[0]&1)) return 0; // no need to set up if we have finished
+		if (str == 0 && aux->finished) return 0; // no need to set up if we have finished
 		aux->finished = 0;
 		if (sep[1]) {
 			aux->sep = -1;
