@@ -1,3 +1,64 @@
+/* The MIT License
+
+   Copyright (c) 2018 by Attractive Chaos <attractor@live.co.uk>
+
+   Permission is hereby granted, free of charge, to any person obtaining
+   a copy of this software and associated documentation files (the
+   "Software"), to deal in the Software without restriction, including
+   without limitation the rights to use, copy, modify, merge, publish,
+   distribute, sublicense, and/or sell copies of the Software, and to
+   permit persons to whom the Software is furnished to do so, subject to
+   the following conditions:
+
+   The above copyright notice and this permission notice shall be
+   included in all copies or substantial portions of the Software.
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+   BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+   ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
+*/
+
+/* An example:
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include "kavl.h"
+
+struct my_node {
+  char key;
+  KAVL_HEAD(struct my_node) head;
+};
+#define my_cmp(p, q) ((p)->key - (q)->key)
+KAVL_INIT(my, struct my_node, head, my_cmp)
+
+int main(void) {
+  const char *str = "MNOLKQOPHIA"; // from wiki, except a duplicate
+  struct my_node *root = 0;
+  int i, l = strlen(str);
+  for (i = 0; i < l; ++i) {        // insert in the input order
+    struct my_node *q, *p = malloc(sizeof(*p));
+    p->key = str[i];
+    q = kavl_insert(my, &root, p, 0);
+    if (p != q) free(p);           // if already present, free
+  }
+  kavl_itr_t(my) itr;
+  kavl_itr_first(my, root, &itr);  // place at first
+  do {                             // traverse
+    const struct my_node *p = kavl_at(&itr);
+    putchar(p->key);
+    free((void*)p);                // free node
+  } while (kavl_itr_next(my, &itr));
+  putchar('\n');
+  return 0;
+}
+*/
+
 #ifndef KAVL_H
 #define KAVL_H
 
@@ -224,9 +285,40 @@
 		} \
 	}
 
+/**
+ * Insert a node to the tree
+ *
+ * @param suf     name suffix used in KAVL_INIT()
+ * @param proot   pointer to the root of the tree (in/out: root may change)
+ * @param x       node to insert (in)
+ * @param cnt     number of nodes smaller than or equal to _x_; can be NULL (out)
+ *
+ * @return _x_ if not present in the tree, or the node equal to x.
+ */
+#define kavl_insert(suf, proot, x, cnt) kavl_insert_##suf(proot, x, cnt)
+
+/**
+ * Find a node in the tree
+ *
+ * @param suf     name suffix used in KAVL_INIT()
+ * @param root    root of the tree
+ * @param x       node value to find (in)
+ * @param cnt     number of nodes smaller than or equal to _x_; can be NULL (out)
+ *
+ * @return node equal to _x_ if present, or NULL if absent
+ */
 #define kavl_find(suf, root, x, cnt) kavl_find_##suf(root, x, cnt)
-#define kavl_insert(suf, root, x, cnt) kavl_insert_##suf(root, x, cnt)
-#define kavl_erase(suf, root, x) kavl_erase_##suf(root, x)
+
+/**
+ * Delete a node from the tree
+ *
+ * @param suf     name suffix used in KAVL_INIT()
+ * @param proot   pointer to the root of the tree (in/out: root may change)
+ * @param x       node value to delete (in)
+ *
+ * @return node removed from the tree if present, or NULL if absent
+ */
+#define kavl_erase(suf, proot, x) kavl_erase_##suf(proot, x)
 
 #define kavl_itr_t(suf) struct kavl_itr_##suf
 #define kavl_itr_first(suf, root, itr) kavl_itr_first_##suf(root, itr)
