@@ -14,15 +14,20 @@ struct my_node {
 #define my_cmp(p, q) ((p)->key - (q)->key)
 KAVL_INIT(my, struct my_node, head, my_cmp)
 
-int check_size(struct my_node *p)
+int check(struct my_node *p, int *hh)
 {
-	int c = 1;
-	if (p == 0) return 0;
-	if (p->head.p[0]) c += check_size(p->head.p[0]);
-	if (p->head.p[1]) c += check_size(p->head.p[1]);
-	if (c != (int)p->head.size)
-		fprintf(stderr, "%d != %d at %c\n", p->head.size, c, p->key);
-	return c;
+	int c = 1, h[2] = {0, 0};
+	*hh = 0;
+	if (p) {
+		if (p->head.p[0]) c += check(p->head.p[0], &h[0]);
+		if (p->head.p[1]) c += check(p->head.p[1], &h[1]);
+		*hh = (h[0] > h[1]? h[0] : h[1]) + 1;
+		if (h[1] - h[0] != (int)p->head.balance)
+			fprintf(stderr, "%d - %d != %d at %c\n", h[1], h[0], p->head.balance, p->key);
+		if (c != (int)p->head.size)
+			fprintf(stderr, "%d != %d at %c\n", p->head.size, c, p->key);
+		return c;
+	} else return 0;
 }
 /*
 int print_tree(const struct my_node *p)
@@ -44,7 +49,8 @@ int print_tree(const struct my_node *p)
 
 void check_and_print(struct my_node *root)
 {
-	check_size(root);
+	int h;
+	check(root, &h);
 	print_tree(root);
 	putchar('\n');
 }
@@ -62,13 +68,13 @@ void shuffle(int n, char a[])
 int main(void)
 {
 	char buf[256];
-	int i, n;
+	int i, n, h;
 	struct my_node *root = 0;
 	struct my_node *p, *q, t;
 	kavl_itr_t(my) itr;
 	unsigned cnt;
 
-	for (i = 33, n = 0; i <= 127; ++i)
+	for (i = 33, n = 0; i <= 126; ++i)
 		if (i != '(' && i != ')' && i != '.' && i != ';')
 			buf[n++] = i;
 	shuffle(n, buf);
@@ -77,14 +83,14 @@ int main(void)
 		p->key = buf[i];
 		q = kavl_insert(my, &root, p, &cnt);
 		if (p != q) free(p);
-		check_size(root);
+		check(root, &h);
 	}
 	shuffle(n, buf);
 	for (i = 0; i < n/2; ++i) {
 		t.key = buf[i];
 		q = kavl_erase(my, &root, &t);
 		if (q) free(q);
-		check_size(root);
+		check(root, &h);
 	}
 
 	kavl_itr_first(my, root, &itr);
