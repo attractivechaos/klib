@@ -251,6 +251,20 @@ int main(void) {
 		return p; \
 	}
 
+#define kavl_free(__type, __head, __root, __free) do { \
+		__type *_p, *_q; \
+		for (_p = __root; _p; _p = _q) { \
+			if (_p->__head.p[0] == 0) { \
+				_q = _p->__head.p[1]; \
+				__free(_p); \
+			} else { \
+				_q = _p->__head.p[0]; \
+				_p->__head.p[0] = _q->__head.p[1]; \
+				_q->__head.p[1] = _p; \
+			} \
+		} \
+	} while (0)
+
 #define __KAVL_ITR(suf, __scope, __type, __head, __cmp) \
 	struct kavl_itr_##suf { \
 		const __type *stack[KAVL_MAX_DEPTH], **top, *right; /* _right_ points to the right child of *top */ \
