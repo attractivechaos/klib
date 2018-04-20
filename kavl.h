@@ -136,7 +136,7 @@ int main(void) {
 		__type *path[KAVL_MAX_DEPTH]; \
 		__type *bp, *bq; \
 		__type *p, *q, *r = 0; /* _r_ is potentially the new root */ \
-		int i, which, top, b1, path_len; \
+		int i, which = 0, top, b1, path_len; \
 		unsigned cnt = 0; \
 		bp = *root_, bq = 0; \
 		/* find the insertion location */ \
