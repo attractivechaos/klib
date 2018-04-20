@@ -11,7 +11,7 @@ struct my_node {
 	KAVL_HEAD(struct my_node) head;
 };
 
-#define my_cmp(p, q) ((p)->key - (q)->key)
+#define my_cmp(p, q) (((p)->key > (q)->key) - ((p)->key < (q)->key))
 KAVL_INIT(my, struct my_node, head, my_cmp)
 
 int check(struct my_node *p, int *hh)

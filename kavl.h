@@ -34,7 +34,7 @@ struct my_node {
   char key;
   KAVL_HEAD(struct my_node) head;
 };
-#define my_cmp(p, q) ((p)->key - (q)->key)
+#define my_cmp(p, q) (((q)->key < (p)->key) - ((p)->key < (q)->key))
 KAVL_INIT(my, struct my_node, head, my_cmp)
 
 int main(void) {
