@@ -189,6 +189,10 @@ void km_stat(const void *_km, km_stat_t *s)
 			panic("[km_stat] The end of a free block enters another free block.");
 		if (p->ptr == km->loop_head) break;
 	}
-	for (p = km->core_head; p != NULL; p = p->ptr)
-		++s->n_cores, s->capacity += p->size * sizeof(header_t);
+	for (p = km->core_head; p != NULL; p = p->ptr) {
+		size_t size = p->size * sizeof(header_t);
+		++s->n_cores;
+		s->capacity += size;
+		s->largest = s->largest > size? s->largest : size;
+	}
 }
