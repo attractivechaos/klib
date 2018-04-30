@@ -169,6 +169,7 @@ typedef khint_t khiter_t;
 #define __ac_set_isempty_false(flag, i) (flag[i>>4]&=~(2ul<<((i&0xfU)<<1)))
 #define __ac_set_isboth_false(flag, i) (flag[i>>4]&=~(3ul<<((i&0xfU)<<1)))
 #define __ac_set_isdel_true(flag, i) (flag[i>>4]|=1ul<<((i&0xfU)<<1))
+#define __ac_fw(item, fp) (fwrite(&(item), 1, sizeof(item), fp))
 
 #define __ac_fsize(m) ((m) < 16? 1 : (m)>>4)
 
@@ -360,7 +361,39 @@ static const double __ac_HASH_UPPER = 0.77;
 			__ac_set_isdel_true(h->flags, x);							\
 			--h->size;													\
 		}																\
-	}
+	}                                                                   \
+    SCOPE void kh_write_##name(kh_##name##_t *map, const char *path) {  \
+        FILE *fp = fopen(path, "wb");                                   \
+        if(fp == NULL) {                                                \
+            fprintf(stderr, "[%s] Could not open file %s.\n", __func__, path);\
+            exit(EXIT_FAILURE);                                         \
+        }                                                               \
+        __ac_fw(map->n_buckets, fp);                                    \
+        __ac_fw(map->n_occupied, fp);                                   \
+        __ac_fw(map->size, fp);                                         \
+        __ac_fw(map->upper_bound, fp);                                  \
+        fwrite(map->flags, __ac_fsize(map->n_buckets), sizeof(khint32_t), fp);\
+        fwrite(map->keys, map->n_buckets, sizeof(*map->keys), fp);      \
+        if(kh_is_map) fwrite(map->vals, map->n_buckets, sizeof(*map->vals), fp);      \
+        fclose(fp);                                                     \
+    }                                                                   \
+    SCOPE kh_##name##_t *khash_load_##name(const char *path)            \
+    {                                                                   \
+        kh_##name##_t *ret = (kh_##name##_t *)calloc(1, sizeof(kh_##name##_t));          \
+        FILE *fp = fopen(path, "rb");                                   \
+        fread(&ret->n_buckets, 1, sizeof(ret->n_buckets), fp);          \
+        fread(&ret->n_occupied, 1, sizeof(ret->n_occupied), fp);        \
+        fread(&ret->size, 1, sizeof(ret->size), fp);                    \
+        fread(&ret->upper_bound, 1, sizeof(ret->upper_bound), fp);      \
+        ret->flags = (khint32_t *)malloc(sizeof(*ret->flags) * __ac_fsize(ret->n_buckets));\
+        ret->keys =  (khkey_t *)malloc(sizeof(khkey_t) * ret->n_buckets);          \
+        ret->vals =  kh_is_map ? (khval_t *)malloc(sizeof(khval_t) * ret->n_buckets) : 0;          \
+        fread(ret->flags, __ac_fsize(ret->n_buckets), sizeof(*ret->flags), fp);\
+        fread(ret->keys, 1, ret->n_buckets * sizeof(*ret->keys), fp);   \
+        if(kh_is_map) fread(ret->vals, 1, ret->n_buckets * sizeof(*ret->vals), fp);   \
+        fclose(fp);                                                     \
+        return ret;                                                     \
+    }
 
 #define KHASH_DECLARE(name, khkey_t, khval_t)		 					\
 	__KHASH_TYPE(name, khkey_t, khval_t) 								\
@@ -497,6 +530,21 @@ static kh_inline khint_t __ac_Wang_hash(khint_t key)
   @param  k     Iterator to the element to be deleted [khint_t]
  */
 #define kh_del(name, h, k) kh_del_##name(h, k)
+
+/*! @function
+  @abstract     Write a hash map to disk.
+  @param  h     Pointer to the hash table [khash_t(name)*]
+  @param  path  Path to which to write. [const char *]
+ */
+#define kh_write(name, h, path) kh_write_##name(h, path)
+
+/*! @function
+  @abstract     Load a hash table from disk
+  @param  name  Name of the hash table [symbol]
+  @param  path  Path to file from which to load [const char *]
+ */
+
+#define kh_load(name, path) khash_load_##name(path)
 
 /*! @function
   @abstract     Test whether a bucket contains data.
