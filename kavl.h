@@ -275,7 +275,7 @@ int main(void) {
 			*++itr->top = p; \
 		itr->right = (*itr->top)->__head.p[1]; \
 	} \
-	__scope int kavl_itr_eq_##suf(const __type *root, const __type *x, struct kavl_itr_##suf *itr) { \
+	__scope int kavl_itr_find_##suf(const __type *root, const __type *x, struct kavl_itr_##suf *itr) { \
 		const __type *p = root; \
 		itr->top = itr->stack - 1; \
 		while (p != 0) { \
@@ -289,10 +289,10 @@ int main(void) {
 			*++itr->top = p; \
 			itr->right = p->__head.p[1]; \
 			return 1; \
-		} else { \
-			itr->top = itr->stack - 1; \
+		} else if (itr->top >= itr->stack) { \
+			itr->right = (*itr->top)->__head.p[1]; \
 			return 0; \
-		} \
+		} else return 0; \
 	} \
 	__scope int kavl_itr_next_##suf(struct kavl_itr_##suf *itr) { \
 		for (;;) { \
@@ -342,9 +342,45 @@ int main(void) {
 #define kavl_erase_first(suf, proot) kavl_erase_##suf(proot, 0)
 
 #define kavl_itr_t(suf) struct kavl_itr_##suf
+
+/**
+ * Place the iterator at the smallest object
+ *
+ * @param suf     name suffix used in KAVL_INIT()
+ * @param root    root of the tree
+ * @param itr     iterator
+ */
 #define kavl_itr_first(suf, root, itr) kavl_itr_first_##suf(root, itr)
-#define kavl_itr_eq(suf, root, x, itr) kavl_itr_eq_##suf(root, x, itr)
+
+/**
+ * Place the iterator at the object equal to or greater than the query
+ *
+ * @param suf     name suffix used in KAVL_INIT()
+ * @param root    root of the tree
+ * @param x       query (in)
+ * @param itr     iterator (out)
+ *
+ * @return 1 if find; 0 otherwise. kavl_at(itr) is NULL if and only if query is
+ *         larger than all objects in the tree
+ */
+#define kavl_itr_find(suf, root, x, itr) kavl_itr_find_##suf(root, x, itr)
+
+/**
+ * Move to the next object in order
+ *
+ * @param itr     iterator (modified)
+ *
+ * @return 1 if there is a next object; 0 otherwise
+ */
 #define kavl_itr_next(suf, itr) kavl_itr_next_##suf(itr)
+
+/**
+ * Return the pointer at the iterator
+ *
+ * @param itr     iterator
+ *
+ * @return pointer if present; NULL otherwise
+ */
 #define kavl_at(itr) ((itr)->top < (itr)->stack? 0 : *(itr)->top)
 
 #define KAVL_INIT2(suf, __scope, __type, __head, __cmp) \
