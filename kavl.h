@@ -90,7 +90,8 @@ int main(void) {
 				cnt += kavl_size_child(__head, p, 0) + 1; \
 				p = p->__head.p[1]; \
 			} else { \
-				if (cnt_) *cnt_ = cnt + 1; \
+				cnt += kavl_size_child(__head, p, 0) + 1; \
+				if (cnt_) *cnt_ = cnt; \
 				return (__type*)p; \
 			} \
 		} \
