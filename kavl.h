@@ -87,8 +87,8 @@ int main(void) {
 			cmp = __cmp(x, p); \
 			if (cmp < 0) p = p->__head.p[0]; \
 			else if (cmp > 0) { \
-				p = p->__head.p[1]; \
 				cnt += kavl_size_child(__head, p, 0) + 1; \
+				p = p->__head.p[1]; \
 			} else { \
 				if (cnt_) *cnt_ = cnt + 1; \
 				return (__type*)p; \
