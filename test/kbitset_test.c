@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 struct kbitset_t;
-void check(struct kbitset_t *bset, const int present[], const char *title);
+void check(struct kbitset_t *bset, int ni, const int present[], const char *title);
 
 #include "kbitset.h"
 
@@ -18,7 +18,7 @@ void fail(const char *format, ...)
 	nfail++;
 }
 
-void check(kbitset_t *bset, const int present[], const char *title)
+void check(kbitset_t *bset, int ni, const int present[], const char *title)
 {
 	kbitset_iter_t itr;
 	int i, j, n, nn;
@@ -26,7 +26,7 @@ void check(kbitset_t *bset, const int present[], const char *title)
 	for (i = 0; present[i] >= 0; i++) kbs_insert(bset, present[i]);
 	nn = i;
 
-	for (i = j = n = 0; i < 600; i++)
+	for (i = j = n = 0; i < ni; i++)
 		if (kbs_exists(bset, i)) {
 			n++;
 			if (i == present[j]) j++;
@@ -70,19 +70,36 @@ const int test2[] = {
 	-1
 };
 
+const int test3[] = {
+	0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+	-1
+};
+
 int main(int argc, char **argv)
 {
 	kbitset_t *bset = kbs_init(600);
+	int i;
 
-	check(bset, test1, "test1");
+	check(bset, 600, test1, "test1");
 	kbs_delete(bset, 0);
 	kbs_delete(bset, 1);
 	kbs_delete(bset, 6);
-	check(bset, &test1[3], "test1a");
+	check(bset, 600, &test1[3], "test1a");
 
 	kbs_clear(bset);
-	check(bset, test2, "test2");
+	check(bset, 600, test2, "test2");
 
+	kbs_insert_all(bset);
+	for (i = 0; i < 600; i++) kbs_delete(bset, i);
+	check(bset, 600, test2, "test3");
+
+	kbs_resize(&bset, 700);
+	check(bset, 700, test2, "test4");
+
+	kbs_destroy(bset);
+
+	bset = kbs_init2(10, 1);
+	check(bset, 10, test3, "test5");
 	kbs_destroy(bset);
 
 	if (nfail > 0) {
