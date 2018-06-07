@@ -203,7 +203,7 @@ static inline int kputw(int c, kstring_t *s)
 	char buf[16];
 	int i, l = 0;
 	unsigned int x = c;
-	if (c < 0) x = -x;
+	if (c < 0) x = -c;
 	do { buf[l++] = x%10 + '0'; x /= 10; } while (x > 0);
 	if (c < 0) buf[l++] = '-';
 	if (s->l + l + 1 >= s->m) {
