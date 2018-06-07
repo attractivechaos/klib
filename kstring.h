@@ -246,7 +246,7 @@ static inline int kputl(long c, kstring_t *s)
 	char buf[32];
 	int i, l = 0;
 	unsigned long x = c;
-	if (c < 0) x = -x;
+	if (c < 0) x = -c;
 	do { buf[l++] = x%10 + '0'; x /= 10; } while (x > 0);
 	if (c < 0) buf[l++] = '-';
 	if (s->l + l + 1 >= s->m) {
