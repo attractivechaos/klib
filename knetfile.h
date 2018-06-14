@@ -50,7 +50,7 @@ extern "C" {
 
 	knetFile *knet_open(const char *fn, const char *mode);
 
-	/* 
+	/*
 	   This only works with local files.
 	 */
 	knetFile *knet_dopen(int fd, const char *mode);

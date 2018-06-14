@@ -52,19 +52,19 @@ static uint32_t sse2_bit_count32(const __m128i* block, const __m128i* block_end)
 
     __m128i tmp1, tmp2;
     do
-    {        
+    {
         __m128i b = _mm_load_si128(block);
         ++block;
 
         // b = (b & 0x55555555) + (b >> 1 & 0x55555555);
         tmp1 = _mm_srli_epi32(b, 1);                    // tmp1 = (b >> 1 & 0x55555555)
-        tmp1 = _mm_and_si128(tmp1, m1); 
+        tmp1 = _mm_and_si128(tmp1, m1);
         tmp2 = _mm_and_si128(b, m1);                    // tmp2 = (b & 0x55555555)
         b    = _mm_add_epi32(tmp1, tmp2);               //  b = tmp1 + tmp2
 
         // b = (b & 0x33333333) + (b >> 2 & 0x33333333);
         tmp1 = _mm_srli_epi32(b, 2);                    // (b >> 2 & 0x33333333)
-        tmp1 = _mm_and_si128(tmp1, m2); 
+        tmp1 = _mm_and_si128(tmp1, m2);
         tmp2 = _mm_and_si128(b, m2);                    // (b & 0x33333333)
         b    = _mm_add_epi32(tmp1, tmp2);               // b = tmp1 + tmp2
 

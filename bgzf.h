@@ -163,7 +163,7 @@ extern "C" {
 	void bgzf_set_cache_size(BGZF *fp, int size);
 
 	/**
-	 * Flush the file if the remaining buffer size is smaller than _size_ 
+	 * Flush the file if the remaining buffer size is smaller than _size_
 	 */
 	int bgzf_flush_try(BGZF *fp, ssize_t size);
 

@@ -547,7 +547,7 @@ int bgzf_getline(BGZF *fp, int delim, kstring_t *str)
 			fp->block_address = _bgzf_tell((_bgzf_file_t)fp->fp);
 			fp->block_offset = 0;
 			fp->block_length = 0;
-		} 
+		}
 	} while (state == 0);
 	if (str->l == 0 && state < 0) return state;
 	str->s[str->l] = 0;

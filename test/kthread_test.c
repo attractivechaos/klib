@@ -27,7 +27,7 @@ static void compute(void *_g, int i, int tid)
 		x *= x; y *= y;
 		if (x + y >= 4) break;
 		x = x - y + x0;
-		y = z + z + y0; 
+		y = z + z + y0;
 	}
 	g->k[i] = k;
 }

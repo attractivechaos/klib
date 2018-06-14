@@ -85,7 +85,7 @@ FLOAT hmm_Viterbi(const hmm_par_t *hp, hmm_data_t *hd)
 	FLOAT **la, **le, *preV, *curV, max;
 	int **Vmax, max_l; // backtrace matrix
 	int k, l, b, u;
-	
+
 	if (hd->v) free(hd->v);
 	hd->v = (int*)calloc(hd->L+1, sizeof(int));
 	la = (FLOAT**)calloc2(hp->n, hp->n, sizeof(FLOAT));
@@ -151,7 +151,7 @@ void hmm_forward(const hmm_par_t *hp, hmm_data_t *hd)
 	// allocate memory for hd->f and hd->s
 	n = hp->n; m = hp->m; L = hd->L;
 	if (hd->s) free(hd->s);
-	if (hd->f) { 
+	if (hd->f) {
 		for (k = 0; k <= hd->L; ++k) free(hd->f[k]);
 		free(hd->f);
 	}
@@ -216,7 +216,7 @@ void hmm_backward(const hmm_par_t *hp, hmm_data_t *hd)
 	assert(hd->status & HMM_FORWARD);
 	// allocate memory for hd->b
 	m = hp->m; n = hp->n; L = hd->L;
-	if (hd->b) { 
+	if (hd->b) {
 		for (k = 0; k <= hd->L; ++k) free(hd->b[k]);
 		free(hd->b);
 	}
@@ -413,7 +413,7 @@ char *hmm_simulate(const hmm_par_t *hp, int L)
 		for (b = 0, y = 0.0; b != hp->m; ++b) {
 			y += el[b];
 			if (y >= x) break;
-		} 
+		}
 		seq[i] = b;
 		k = l;
 	}

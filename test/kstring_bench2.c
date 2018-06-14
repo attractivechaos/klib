@@ -112,7 +112,7 @@ int main()
 			memcpy(tmp, data + y, pat_len);
 			ret = strnstr(data, tmp, str_len);
 		}
-		fprintf(stderr, "Search patterns in %.3f sec\n", (float)(clock() - t) / CLOCKS_PER_SEC);		
+		fprintf(stderr, "Search patterns in %.3f sec\n", (float)(clock() - t) / CLOCKS_PER_SEC);
 	}
 #endif
 #ifdef HAVE_MEMMEM
