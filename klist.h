@@ -28,6 +28,14 @@
 
 #include <stdlib.h>
 
+#ifndef klib_inline
+#ifdef _MSC_VER
+#define klib_inline __inline
+#else
+#define klib_inline inline
+#endif
+#endif /* klib_inline */
+
 #ifndef klib_unused
 #if (defined __clang__ && __clang_major__ >= 3) || (defined __GNUC__ && __GNUC__ >= 3)
 #define klib_unused __attribute__ ((__unused__))
@@ -66,7 +74,7 @@
 	}
 
 #define KMEMPOOL_INIT(name, kmptype_t, kmpfree_f)						\
-	KMEMPOOL_INIT2(static inline klib_unused, name, kmptype_t, kmpfree_f)
+	KMEMPOOL_INIT2(static klib_inline klib_unused, name, kmptype_t, kmpfree_f)
 
 #define kmempool_t(name) kmp_##name##_t
 #define kmp_init(name) kmp_init_##name()
@@ -118,7 +126,7 @@
 	}
 
 #define KLIST_INIT(name, kltype_t, kmpfree_t)							\
-	KLIST_INIT2(static inline klib_unused, name, kltype_t, kmpfree_t)
+	KLIST_INIT2(static klib_inline klib_unused, name, kltype_t, kmpfree_t)
 
 #define kliter_t(name) kl1_##name
 #define klist_t(name) kl_##name##_t

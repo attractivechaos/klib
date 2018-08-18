@@ -93,6 +93,14 @@
 	__KDQ_TYPE(type) \
 	__KDQ_IMPL(type, SCOPE)
 
+#ifndef klib_inline
+#ifdef _MSC_VER
+#define klib_inline __inline
+#else
+#define klib_inline inline
+#endif
+#endif /* klib_inline */
+
 #ifndef klib_unused
 #if (defined __clang__ && __clang_major__ >= 3) || (defined __GNUC__ && __GNUC__ >= 3)
 #define klib_unused __attribute__ ((__unused__))
@@ -101,7 +109,7 @@
 #endif
 #endif /* klib_unused */
 
-#define KDQ_INIT(type) KDQ_INIT2(type, static inline klib_unused)
+#define KDQ_INIT(type) KDQ_INIT2(type, static klib_inline klib_unused)
 
 #define KDQ_DECLARE(type) \
 	__KDQ_TYPE(type) \
