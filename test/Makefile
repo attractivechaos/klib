@@ -3,7 +3,7 @@ CXX=g++
 CFLAGS=-g -Wall -O2 -I..
 CXXFLAGS=$(CFLAGS)
 PROGS=kbtree_test khash_keith khash_keith2 khash_test klist_test kseq_test kseq_bench \
-		kseq_bench2 ksort_test ksort_test-stl kvec_test kmin_test kstring_bench kstring_bench2 kstring_test \
+		kseq_bench2 ksort_test ksort_test-stl kvec_test kmin_test knetfile_test kstring_bench kstring_bench2 kstring_test \
 		kthread_test2
 
 all:$(PROGS)
@@ -46,6 +46,9 @@ kvec_test:kvec_test.cc ../kvec.h
 
 kmin_test:kmin_test.c ../kmath.h ../kmath.c
 		$(CC) $(CFLAGS) -o $@ kmin_test.c ../kmath.c
+
+knetfile_test:../knetfile.h ../knetfile.c
+		$(CC) $(CFLAGS) -DKNETFILE_MAIN -o $@ ../knetfile.c
 
 kstring_bench:kstring_bench.c ../kstring.h ../kstring.c
 		$(CC) $(CFLAGS) -o $@ kstring_bench.c ../kstring.c

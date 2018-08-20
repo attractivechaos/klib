@@ -582,6 +582,7 @@ int knet_close(knetFile *fp)
 	free(fp->host); free(fp->port);
 	free(fp->response); free(fp->retr); // FTP specific
 	free(fp->path); free(fp->http_host); // HTTP specific
+	free(fp->size_cmd);
 	free(fp);
 	return 0;
 }
@@ -591,7 +592,7 @@ int main(void)
 {
 	char *buf;
 	knetFile *fp;
-	int type = 4, l;
+	int type = 5, l;
 #ifdef _WIN32
 	knet_win32_init();
 #endif
@@ -615,7 +616,13 @@ int main(void)
 		knet_seek(fp, 20000, SEEK_SET);
 		knet_seek(fp, 10000, SEEK_SET);
 		l = knet_read(fp, buf+10000, 10000000) + 10000;
-	}
+	} else if (type == 5) {
+		fp = knet_open("http://archive.debian.org/debian/README", "r");
+		knet_read(fp, buf, 10000);
+		knet_seek(fp, 20000, SEEK_SET);
+		knet_seek(fp, 10000, SEEK_SET);
+		l = knet_read(fp, buf+10000, 10000000) + 10000;
+        }
 	if (type != 4 && type != 1) {
 		knet_read(fp, buf, 255);
 		buf[255] = 0;
