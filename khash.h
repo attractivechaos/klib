@@ -205,14 +205,18 @@ static const double __ac_HASH_UPPER = 0.77;
 		khval_t *vals; \
 	} kh_##name##_t;
 
-#define __KHASH_PROTOTYPES(name, khkey_t, khval_t)	 					\
-	extern kh_##name##_t *kh_init_##name(void);							\
-	extern void kh_destroy_##name(kh_##name##_t *h);					\
-	extern void kh_clear_##name(kh_##name##_t *h);						\
-	extern khint_t kh_get_##name(const kh_##name##_t *h, khkey_t key); 	\
+#define __KHASH_PROTOTYPES(name, khkey_t, khval_t)     					  \
+    extern kh_##name##_t *kh_init_##name(void);                           \
+    extern void kh_destroy_##name(kh_##name##_t *h);                      \
+    extern void kh_clear_##name(kh_##name##_t *h);                        \
+	extern khint_t kh_get_##name(const kh_##name##_t *h, khkey_t key); 	  \
 	extern int kh_resize_##name(kh_##name##_t *h, khint_t new_n_buckets); \
-	extern khint_t kh_put_##name(kh_##name##_t *h, khkey_t key, int *ret); \
-	extern void kh_del_##name(kh_##name##_t *h, khint_t x);
+	extern khint_t kh_put_##name(kh_##name##_t *h, khkey_t key, int *ret);\
+	extern void kh_del_##name(kh_##name##_t *h, khint_t x);               \
+    extern kh_##name##_t *kh_deserialize_##name(const char *path);        \
+    extern int kh_serialize_##name(kh_##name##_t *h, const char *path);   \
+    extern kh_##name##_t *kh_read_##name(kh_##name##_t *dest, FILE *fp);  \
+    extern void kh_write_##name(kh_##name##_t *map, const char *path);     \
 
 #define __KHASH_IMPL(name, SCOPE, khkey_t, khval_t, kh_is_map, __hash_func, __hash_equal) \
 	SCOPE kh_##name##_t *kh_init_##name(void) {							\
@@ -226,13 +230,21 @@ static const double __ac_HASH_UPPER = 0.77;
 			kfree(h);													\
 		}																\
 	}																	\
-    SCOPE void kh_write_##name(kh_##name##_t *h, const char *path) {\
-        FILE *fp = fopen(path, "wb");\
-        fwrite(h, 1, sizeof(*h), fp);\
-        fwrite(h->flags, 1, sizeof(*h->flags) * h->n_buckets, fp);\
-        fwrite(h->keys, 1, sizeof(*h->keys) * h->n_buckets, fp);\
-        fwrite(h->vals, 1, sizeof(*h->vals) * h->n_buckets, fp);\
+    SCOPE int kh_serialize_##name(kh_##name##_t *h, const char *path) {\
+        int i;\
+        FILE *fp;\
+        if((fp = fopen(path, "wb")) == NULL) return -2;\
+        i = kh_write_##name(h, fp);\
         fclose(fp);\
+        return i;\
+    }\
+    SCOPE int kh_write_##name(kh_##name##_t *h, FILE *fp) {\
+        int i;\
+        if((i = fwrite(h, sizeof(*h), 1, fp)) != 1) return -1;\
+        if((i = fwrite(h->flags, sizeof(khint32_t), __ac_fsize(h->n_buckets), fp)) != __ac_fsize(h->n_buckets)) return -1;\
+        if((i = fwrite(h->keys, sizeof(khkey_t), h->n_buckets, fp)) != h->n_buckets) return -1;\
+        if((i = fwrite(h->vals, sizeof(khval_t), h->n_buckets, fp)) != h->n_buckets) return -1;\
+        return 0;\
     }\
 	SCOPE void kh_clear_##name(kh_##name##_t *h)						\
 	{																	\
@@ -382,22 +394,28 @@ static const double __ac_HASH_UPPER = 0.77;
         if(kh_is_map) fwrite(map->vals, map->n_buckets, sizeof(*map->vals), fp);      \
         fclose(fp);                                                     \
     }                                                                   \
-    SCOPE kh_##name##_t *khash_load_##name(const char *path)            \
+    SCOPE kh_##name##_t *kh_deserialize_##name(const char *path)               \
     {                                                                   \
-        kh_##name##_t *ret = (kh_##name##_t *)calloc(1, sizeof(kh_##name##_t));          \
-        FILE *fp = fopen(path, "rb");                                   \
-        fread(&ret->n_buckets, 1, sizeof(ret->n_buckets), fp);          \
-        fread(&ret->n_occupied, 1, sizeof(ret->n_occupied), fp);        \
-        fread(&ret->size, 1, sizeof(ret->size), fp);                    \
-        fread(&ret->upper_bound, 1, sizeof(ret->upper_bound), fp);      \
-        ret->flags = (khint32_t *)malloc(sizeof(*ret->flags) * __ac_fsize(ret->n_buckets));\
-        ret->keys =  (khkey_t *)malloc(sizeof(khkey_t) * ret->n_buckets);          \
-        ret->vals =  kh_is_map ? (khval_t *)malloc(sizeof(khval_t) * ret->n_buckets) : 0;          \
-        fread(ret->flags, __ac_fsize(ret->n_buckets), sizeof(*ret->flags), fp);\
-        fread(ret->keys, 1, ret->n_buckets * sizeof(*ret->keys), fp);   \
-        if(kh_is_map) fread(ret->vals, 1, ret->n_buckets * sizeof(*ret->vals), fp);   \
+        FILE *fp;                                                       \
+        kh_##name##_t *ret;                                             \
+        ret = (kh_##name##_t *)calloc(1, sizeof(kh_##name##_t));        \
+        fp = fopen(path, "rb");                                         \
+        ret = kh_read_##name(ret, fp);                                       \
         fclose(fp);                                                     \
         return ret;                                                     \
+    }                                                                   \
+    SCOPE kh_##name##_t *kh_read_##name(kh_##name##_t *dest, FILE *fp) {\
+        fread(&dest->n_buckets, sizeof(dest->n_buckets), 1, fp);        \
+        fread(&dest->n_occupied, sizeof(dest->n_occupied), 1, fp);      \
+        fread(&dest->size, sizeof(dest->size), 1, fp);                  \
+        fread(&dest->upper_bound, sizeof(dest->upper_bound), 1, fp);    \
+        dest->flags = (khint32_t *)malloc(sizeof(*dest->flags) * __ac_fsize(dest->n_buckets));\
+        fread(dest->flags, sizeof(khint32_t), __ac_fsize(dest->n_buckets), fp);\
+        dest->keys =  (khkey_t *)malloc(sizeof(khkey_t) * dest->n_buckets);          \
+        fread(dest->keys, sizeof(khkey_t), dest->n_buckets, fp);   \
+        dest->vals =  kh_is_map ? (khval_t *)malloc(sizeof(khval_t) * dest->n_buckets) : 0;          \
+        if(kh_is_map) fread(dest->vals, 1, dest->n_buckets * sizeof(*dest->vals), fp);   \
+        return dest;                                                     \
     }
 
 #define KHASH_DECLARE(name, khkey_t, khval_t)		 					\
