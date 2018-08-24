@@ -85,17 +85,13 @@ int main(void) {
 		while (p != 0) { \
 			int cmp; \
 			cmp = __cmp(x, p); \
+			if (cmp >= 0) cnt += kavl_size_child(__head, p, 0) + 1; \
 			if (cmp < 0) p = p->__head.p[0]; \
-			else if (cmp > 0) { \
-				p = p->__head.p[1]; \
-				cnt += kavl_size_child(__head, p, 0) + 1; \
-			} else { \
-				if (cnt_) *cnt_ = cnt + 1; \
-				return (__type*)p; \
-			} \
+			else if (cmp > 0) p = p->__head.p[1]; \
+			else break; \
 		} \
 		if (cnt_) *cnt_ = cnt; \
-		return 0; \
+		return (__type*)p; \
 	}
 
 #define __KAVL_ROTATE(suf, __type, __head) \
@@ -143,13 +139,13 @@ int main(void) {
 		for (p = bp, q = bq, top = path_len = 0; p; q = p, p = p->__head.p[which]) { \
 			int cmp; \
 			cmp = __cmp(x, p); \
+			if (cmp >= 0) cnt += kavl_size_child(__head, p, 0) + 1; \
 			if (cmp == 0) { \
-				if (cnt_) *cnt_ = cnt + 1; \
+				if (cnt_) *cnt_ = cnt; \
 				return p; \
 			} \
 			if (p->__head.balance != 0) \
 				bq = q, bp = p, top = 0; \
-			if (cmp > 0) cnt += kavl_size_child(__head, p, 0) + 1; \
 			stack[top++] = which = (cmp > 0); \
 			path[path_len++] = p; \
 		} \
@@ -177,24 +173,32 @@ int main(void) {
 	}
 
 #define __KAVL_ERASE(suf, __scope, __type, __head, __cmp) \
-	__scope __type *kavl_erase_##suf(__type **root_, const __type *x) { \
+	__scope __type *kavl_erase_##suf(__type **root_, const __type *x, unsigned *cnt_) { \
 		__type *p, *path[KAVL_MAX_DEPTH], fake; \
 		unsigned char dir[KAVL_MAX_DEPTH]; \
 		int i, d = 0, cmp; \
+		unsigned cnt = 0; \
 		fake.__head.p[0] = *root_, fake.__head.p[1] = 0; \
+		if (cnt_) *cnt_ = 0; \
 		if (x) { \
 			for (cmp = -1, p = &fake; cmp; cmp = __cmp(x, p)) { \
 				int which = (cmp > 0); \
+				if (cmp > 0) cnt += kavl_size_child(__head, p, 0) + 1; \
 				dir[d] = which; \
 				path[d++] = p; \
 				p = p->__head.p[which]; \
-				if (p == 0) return 0; \
+				if (p == 0) { \
+					if (cnt_) *cnt_ = 0; \
+					return 0; \
+				} \
 			} \
+			cnt += kavl_size_child(__head, p, 0) + 1; /* because p==x is not counted */ \
 		} else { \
-			for (p = &fake; p; p = p->__head.p[0]) \
+			for (p = &fake, cnt = 1; p; p = p->__head.p[0]) \
 				dir[d] = 0, path[d++] = p; \
 			p = path[--d]; \
 		} \
+		if (cnt_) *cnt_ = cnt; \
 		for (i = 1; i < d; ++i) --path[i]->__head.size; \
 		if (p->__head.p[1] == 0) { /* ((1,.)2,3)4 => (1,3)4; p=2 */ \
 			path[d-1]->__head.p[dir[d-1]] = p->__head.p[0]; \
@@ -275,7 +279,7 @@ int main(void) {
 			*++itr->top = p; \
 		itr->right = (*itr->top)->__head.p[1]; \
 	} \
-	__scope int kavl_itr_eq_##suf(const __type *root, const __type *x, struct kavl_itr_##suf *itr) { \
+	__scope int kavl_itr_find_##suf(const __type *root, const __type *x, struct kavl_itr_##suf *itr) { \
 		const __type *p = root; \
 		itr->top = itr->stack - 1; \
 		while (p != 0) { \
@@ -289,10 +293,10 @@ int main(void) {
 			*++itr->top = p; \
 			itr->right = p->__head.p[1]; \
 			return 1; \
-		} else { \
-			itr->top = itr->stack - 1; \
+		} else if (itr->top >= itr->stack) { \
+			itr->right = (*itr->top)->__head.p[1]; \
 			return 0; \
-		} \
+		} else return 0; \
 	} \
 	__scope int kavl_itr_next_##suf(struct kavl_itr_##suf *itr) { \
 		for (;;) { \
@@ -338,13 +342,49 @@ int main(void) {
  *
  * @return node removed from the tree if present, or NULL if absent
  */
-#define kavl_erase(suf, proot, x) kavl_erase_##suf(proot, x)
-#define kavl_erase_first(suf, proot) kavl_erase_##suf(proot, 0)
+#define kavl_erase(suf, proot, x, cnt) kavl_erase_##suf(proot, x, cnt)
+#define kavl_erase_first(suf, proot) kavl_erase_##suf(proot, 0, 0)
 
 #define kavl_itr_t(suf) struct kavl_itr_##suf
+
+/**
+ * Place the iterator at the smallest object
+ *
+ * @param suf     name suffix used in KAVL_INIT()
+ * @param root    root of the tree
+ * @param itr     iterator
+ */
 #define kavl_itr_first(suf, root, itr) kavl_itr_first_##suf(root, itr)
-#define kavl_itr_eq(suf, root, x, itr) kavl_itr_eq_##suf(root, x, itr)
+
+/**
+ * Place the iterator at the object equal to or greater than the query
+ *
+ * @param suf     name suffix used in KAVL_INIT()
+ * @param root    root of the tree
+ * @param x       query (in)
+ * @param itr     iterator (out)
+ *
+ * @return 1 if find; 0 otherwise. kavl_at(itr) is NULL if and only if query is
+ *         larger than all objects in the tree
+ */
+#define kavl_itr_find(suf, root, x, itr) kavl_itr_find_##suf(root, x, itr)
+
+/**
+ * Move to the next object in order
+ *
+ * @param itr     iterator (modified)
+ *
+ * @return 1 if there is a next object; 0 otherwise
+ */
 #define kavl_itr_next(suf, itr) kavl_itr_next_##suf(itr)
+
+/**
+ * Return the pointer at the iterator
+ *
+ * @param itr     iterator
+ *
+ * @return pointer if present; NULL otherwise
+ */
 #define kavl_at(itr) ((itr)->top < (itr)->stack? 0 : *(itr)->top)
 
 #define KAVL_INIT2(suf, __scope, __type, __head, __cmp) \

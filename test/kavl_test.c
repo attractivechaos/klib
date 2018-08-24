@@ -88,7 +88,7 @@ int main(void)
 	shuffle(n, buf);
 	for (i = 0; i < n/2; ++i) {
 		t.key = buf[i];
-		q = kavl_erase(my, &root, &t);
+		q = kavl_erase(my, &root, &t, 0);
 		if (q) free(q);
 		check(root, &h);
 	}
