@@ -159,8 +159,13 @@ typedef unsigned long long khint64_t;
 #endif
 #endif /* klib_unused */
 
+#if KH_USE_64_BIT
+typedef khint64_t khint_t;
+typedef khint_t khiter_t;
+#else
 typedef khint32_t khint_t;
 typedef khint_t khiter_t;
+#endif
 
 #define __ac_isempty(flag, i) ((flag[i>>4]>>((i&0xfU)<<1))&2)
 #define __ac_isdel(flag, i) ((flag[i>>4]>>((i&0xfU)<<1))&1)
