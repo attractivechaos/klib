@@ -195,6 +195,27 @@ typedef khint_t khiter_t;
 #define kfree(P) free(P)
 #endif
 
+#ifdef __cplusplus
+#include <type_traits>
+template<typename T>
+void __free_key(T v) {
+}
+template<> void __free_key(const char *s) {
+    ::std::free(const_cast<char *>(s));
+}
+#define DESTROY_AT_X(h, x, kh_is_map) do {\
+        __free_key(h->keys[x]);\
+        if(kh_is_map) {\
+            if constexpr(!::std::is_trivially_destructible_v<::std::decay_t<decltype(*h->vals)>>) {\
+                using ValType = ::std::decay_t<decltype(*h->vals)>;\
+                h->vals[x].~ValType();\
+            }\
+        }\
+    } while(0);
+#else
+#define DESTROY_AT_X(h, x, kh_is_map)
+#endif
+
 static const double __ac_HASH_UPPER = 0.77;
 
 #define __KHASH_TYPE(name, khkey_t, khval_t) \
@@ -357,6 +378,7 @@ static const double __ac_HASH_UPPER = 0.77;
 		if (x != h->n_buckets && !__ac_iseither(h->flags, x)) {			\
 			__ac_set_isdel_true(h->flags, x);							\
 			--h->size;													\
+			DESTROY_AT_X(h, x, kh_is_map)\
 		}																\
 	}                                                                   \
     SCOPE void kh_write_##name(kh_##name##_t *map, const char *path) {  \
