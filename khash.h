@@ -400,16 +400,6 @@ static const double __ac_HASH_UPPER = 0.77;
         if(kh_is_map) fwrite(map->vals, map->n_buckets, sizeof(*map->vals), fp);      \
         fclose(fp);                                                     \
     }                                                                   \
-    SCOPE kh_##name##_t *kh_deserialize_##name(const char *path)               \
-    {                                                                   \
-        FILE *fp;                                                       \
-        kh_##name##_t *ret;                                             \
-        ret = (kh_##name##_t *)calloc(1, sizeof(kh_##name##_t));        \
-        fp = fopen(path, "rb");                                         \
-        ret = kh_read_##name(ret, fp);                                       \
-        fclose(fp);                                                     \
-        return ret;                                                     \
-    }                                                                   \
     SCOPE kh_##name##_t *kh_read_##name(kh_##name##_t *dest, FILE *fp) {\
         fread(&dest->n_buckets, sizeof(dest->n_buckets), 1, fp);        \
         fread(&dest->n_occupied, sizeof(dest->n_occupied), 1, fp);      \
@@ -422,6 +412,16 @@ static const double __ac_HASH_UPPER = 0.77;
         dest->vals =  kh_is_map ? (khval_t *)malloc(sizeof(khval_t) * dest->n_buckets) : 0;          \
         if(kh_is_map) fread(dest->vals, 1, dest->n_buckets * sizeof(*dest->vals), fp);   \
         return dest;                                                     \
+    }\
+    SCOPE kh_##name##_t *kh_deserialize_##name(const char *path)               \
+    {                                                                   \
+        FILE *fp;                                                       \
+        kh_##name##_t *ret;                                             \
+        ret = (kh_##name##_t *)calloc(1, sizeof(kh_##name##_t));        \
+        fp = fopen(path, "rb");                                         \
+        ret = kh_read_##name(ret, fp);                                       \
+        fclose(fp);                                                     \
+        return ret;                                                     \
     }
 
 #define KHASH_DECLARE(name, khkey_t, khval_t)		 					\
