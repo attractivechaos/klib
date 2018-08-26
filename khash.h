@@ -369,21 +369,29 @@ static const double __ac_HASH_UPPER = 0.77;
         __ac_fw(map->size, fp);                                         \
         __ac_fw(map->upper_bound, fp);                                  \
         fwrite(map->flags, __ac_fsize(map->n_buckets), sizeof(khint32_t), fp);\
-        fwrite(map->keys, map->n_buckets, sizeof(*map->keys), fp);      \
-        if(kh_is_map) fwrite(map->vals, map->n_buckets, sizeof(*map->vals), fp);      \
+        fwrite(map->keys, map->n_buckets, sizeof(khkey_t), fp);      \
+        if(kh_is_map) fwrite(map->vals, map->n_buckets, sizeof(khval_t), fp);      \
     }                                                                   \
     SCOPE kh_##name##_t *kh_read_##name(kh_##name##_t *dest, FILE *fp) {\
         fread(&dest->n_buckets, sizeof(dest->n_buckets), 1, fp);        \
         fread(&dest->n_occupied, sizeof(dest->n_occupied), 1, fp);      \
         fread(&dest->size, sizeof(dest->size), 1, fp);                  \
         fread(&dest->upper_bound, sizeof(dest->upper_bound), 1, fp);    \
-        dest->flags = (khint32_t *)malloc(sizeof(*dest->flags) * __ac_fsize(dest->n_buckets));\
+        dest->flags = (khint32_t *)malloc(sizeof(khint32_t) * __ac_fsize(dest->n_buckets));\
         fread(dest->flags, sizeof(khint32_t), __ac_fsize(dest->n_buckets), fp);\
         dest->keys =  (khkey_t *)malloc(sizeof(khkey_t) * dest->n_buckets);          \
         fread(dest->keys, sizeof(khkey_t), dest->n_buckets, fp);   \
         dest->vals =  kh_is_map ? (khval_t *)malloc(sizeof(khval_t) * dest->n_buckets) : 0;          \
         if(kh_is_map) fread(dest->vals, 1, dest->n_buckets * sizeof(*dest->vals), fp);   \
         return dest;                                                     \
+    }\
+    SCOPE int kh_serialize_##name(kh_##name##_t *h, const char *path)               \
+    {                                                                   \
+        FILE *fp;                                                       \
+        if((fp = fopen(path, "wb")) == NULL) return -1;                 \
+        kh_write_##name(h, fp);                                       \
+        fclose(fp);                                                     \
+        return 0;                                                     \
     }\
     SCOPE kh_##name##_t *kh_deserialize_##name(const char *path)               \
     {                                                                   \
@@ -533,11 +541,18 @@ static kh_inline khint_t __ac_Wang_hash(khint_t key)
 #define kh_del(name, h, k) kh_del_##name(h, k)
 
 /*! @function
-  @abstract     Write a hash map to disk.
+  @abstract     Read a hash map from disk
   @param  h     Pointer to the hash table [khash_t(name)*]
-  @param  path  Path to which to write. [const char *]
+  @param  path  File pointer, opened for writing. [FILE *]
  */
-#define kh_write(name, h, path) kh_write_##name(h, path)
+#define kh_read(name, h, fp) kh_read_##name(h, fp)
+
+/*! @function
+  @abstract     Write a hash map in raw binary form to a file pointer.
+  @param  h     Pointer to the hash table [khash_t(name)*]
+  @param  path  File pointer, opened for reading [const char *]
+ */
+#define kh_write(name, h, fp) kh_write_##name(h, fp)
 
 /*! @function
   @abstract     Load a hash table from disk
@@ -545,7 +560,15 @@ static kh_inline khint_t __ac_Wang_hash(khint_t key)
   @param  path  Path to file from which to load [const char *]
  */
 
-#define kh_load(name, path) khash_load_##name(path)
+#define kh_deserialize(name, path) kh_deserialize_##name(path)
+
+/*! @function
+  @abstract     Write a hash table from disk
+  @param  name  Name of the hash table [symbol]
+  @param  path  Path to file to which to serialize [const char *]
+ */
+
+#define kh_serialize(name, h, path) kh_serialize_##name(h, path)
 
 /*! @function
   @abstract     Test whether a bucket contains data.
