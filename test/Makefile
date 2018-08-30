@@ -61,3 +61,6 @@ kthread_test:kthread_test.c ../kthread.c
 
 kthread_test2:kthread_test2.c ../kthread.c
 		$(CC) $(CFLAGS) -o $@ kthread_test2.c ../kthread.c
+
+ketopt_test:ketopt_test.c ../ketopt.c
+		$(CC) $(CFLAGS) -o $@ ketopt_test.c ../ketopt.c
