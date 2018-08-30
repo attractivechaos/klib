@@ -1,7 +1,7 @@
 #include <string.h> /* for strchr() and strncmp() */
 #include "ketopt.h"
 
-ketopt_t KETOPT_INIT = { 1, 0, 0, 1, 0, 0 };
+ketopt_t KETOPT_INIT = { 1, 0, 0, -1, 1, 0, 0 };
 
 static void ketopt_permute(char *argv[], int j, int n) /* move argv[j] over n elements to the left */
 {
