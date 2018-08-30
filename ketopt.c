@@ -20,7 +20,7 @@ int ketopt(ketopt_t *s, int argc, char *argv[], int permute, const char *ostr, c
 		while (s->i < argc && (argv[s->i][0] != '-' || argv[s->i][1] == '\0'))
 			++s->i, ++s->n_args;
 	}
-	s->arg = 0, i0 = s->i;
+	s->arg = 0, s->longidx = -1, i0 = s->i;
 	if (s->i >= argc || argv[s->i][0] != '-' || argv[s->i][1] == '\0') {
 		s->ind = s->i - s->n_args;
 		return -1;
@@ -40,7 +40,7 @@ int ketopt(ketopt_t *s, int argc, char *argv[], int permute, const char *ostr, c
 				if (strncmp(&argv[s->i][2], longopts[k].name, j - 2) == 0)
 					++n_matches, o = &longopts[k];
 			if (n_matches == 1) {
-				s->opt = opt = o->val;
+				s->opt = opt = o->val, s->longidx = o - longopts;
 				if (argv[s->i][j] == '=') s->arg = &argv[s->i][j + 1];
 				if (o->has_arg == 1 && argv[s->i][j] == '\0') {
 					if (s->i < argc - 1) s->arg = argv[++s->i];

@@ -9,6 +9,7 @@ typedef struct {
 	int ind;   /* equivalent to optind */
 	int opt;   /* equivalent to optopt */
 	char *arg; /* equivalent to optarg */
+	int longidx; /* index of a long option; or -1 if short */
 	/* private variables not intended for external uses */
 	int i, pos, n_args;
 } ketopt_t;
