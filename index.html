@@ -189,6 +189,8 @@ Error message and password prompt
 
 <li>Kdq: double-ended queue</li>
 
+<li>Ketopt: parsing command-line arguments</li>
+
 <li>Kexpr: parsing mathematical expressions</li>
 
 <li>Khash: generic hash table</li>
@@ -8382,7 +8384,7 @@ pre .xml .cdata {
 <div modified="20141201152658215" modifier="lh3" title="$:/view">
 <pre>classic</pre>
 </div>
-<div created="20141130022418365" creator="lh3" modified="20160822123859305" modifier="lh3" tags="TableOfContents" title="About">
+<div created="20141130022418365" creator="lh3" modified="20180831085110417" modifier="lh3" tags="TableOfContents" title="About">
 <pre>[[Klib|https://github.com/attractivechaos/klib/]] is a standalone and lightweight C library distributed under [[MIT/X11 license|http://en.wikipedia.org/wiki/MIT_License]]. Most components are independent of external libraries, except the standard C library, and independent of each other. To use a component of this library, you only need to copy a couple of files to your source code tree without worrying about library dependencies.
 
 Klib strives for efficiency and a small memory footprint. Some components, such as hash table, B-tree, vector and sorting algorithms, are among the most efficient implementations of similar algorithms or data structures in all programming languages, in terms of both speed and memory use.
@@ -8397,9 +8399,10 @@ Klib strives for efficiency and a small memory footprint. Some components, such 
 * [[kdq.h|Kdq: double-ended queue]]: generic double-ended queue (de-queue).
 * klist.h: generic single-linked list and memory pool.
 * kstring.{h,c}: basic string library.
+* [[ketopt.h|Ketopt: parsing command-line arguments]]: command-line argument parser, similar to [[getopt_long|https://linux.die.net/man/3/getopt_long]].
 * kmath.{h,c}: numerical routines including [[MT19937-64|http://en.wikipedia.org/wiki/Mersenne_twister]] pseudorandom number generator, basic nonlinear programming and a few special math functions.
 * [[kson.{h,c}|Kson: simple JSON parser]]: simple [[JSON|http://www.json.org]] parser (no streaming)
-* [[kthread.c|Kthread: simple threading models]]: simple multi-threading models.
+* [[kthread.{h,c}|Kthread: simple threading models]]: simple multi-threading models.
 
 !!!Components for more specific use cases
 
@@ -8633,6 +8636,47 @@ int main(void)
 	kdq_destroy(int, q);
 	return 0;
 }
+```</pre>
+</div>
+<div created="20180831083058888" creator="lh3" modified="20180831084804032" modifier="lh3" tags="[[Library Documentations]]" title="Ketopt: parsing command-line arguments">
+<pre>!!Synopsis
+
+* Functionality: parse command-line arguments, supporting similar features to GNU's [[getopt_long|https://linux.die.net/man/3/getopt_long]], but with a slightly different interface.
+* Library code: [[ketopt.h|https://github.com/attractivechaos/klib/blob/master/ketopt.h]].
+* Dependencies: none
+
+!!Examples
+!!!Example 1: accept option `-x`, `-y arg`, `--foo`, `--bar=arg` and `--opt[=arg]`.
+```c
+#include &lt;stdio.h&gt;
+#include &quot;ketopt.h&quot;
+
+int main(int argc, char *argv[])
+{
+  static ko_longopt_t longopts[] = {
+    { &quot;foo&quot;, ko_no_argument,       301 },
+    { &quot;bar&quot;, ko_required_argument, 302 },
+    { &quot;opt&quot;, ko_optional_argument, 303 },
+    { NULL, 0, 0 }
+  };
+  ketopt_t opt = KETOPT_INIT;
+  int i, c;
+  while ((c = ketopt(&amp;opt, argc, argv, 1, &quot;xy:&quot;, longopts)) &gt;= 0) {
+    if (c == 'x') printf(&quot;-x\n&quot;);
+    else if (c == 'y') printf(&quot;-y %s\n&quot;, opt.arg);
+    else if (c == 301) printf(&quot;--foo\n&quot;);
+    else if (c == 302) printf(&quot;--bar %s\n&quot;, opt.arg? opt.arg : &quot;(null)&quot;);
+    else if (c == 303) printf(&quot;--opt %s\n&quot;, opt.arg? opt.arg : &quot;(null)&quot;);
+    else if (c == '?') printf(&quot;unknown opt: -%c\n&quot;, opt.opt? opt.opt : ':');
+    else if (c == ':') printf(&quot;missing arg: -%c\n&quot;, opt.opt? opt.opt : ':');
+  }
+  printf(&quot;Non-option arguments:&quot;);
+  for (i = opt.ind; i &lt; argc; ++i)
+    printf(&quot; %s&quot;, argv[i]);
+  fputc('\n', stderr);
+  return 0;
+}
+
 ```</pre>
 </div>
 <div created="20160816212627236" creator="lh3" modified="20160816214517684" modifier="lh3" tags="[[Library Documentations]]" title="Kexpr: parsing mathematical expressions">
