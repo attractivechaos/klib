@@ -8249,7 +8249,7 @@ pre .xml .cdata {
 <div created="20141130022153074" creator="l" modified="20141130022153293" modifier="lh" title="$:/status/UserName">
 <pre>lh3</pre>
 </div>
-<div list="About" title="$:/StoryList">
+<div list="About [[Ketopt: parsing command-line arguments]]" title="$:/StoryList">
 <pre></pre>
 </div>
 <div plugin-type="info" title="$:/temp/info-plugin" type="application/json">
@@ -8638,7 +8638,7 @@ int main(void)
 }
 ```</pre>
 </div>
-<div created="20180831083058888" creator="lh3" modified="20180831084804032" modifier="lh3" tags="[[Library Documentations]]" title="Ketopt: parsing command-line arguments">
+<div created="20180831083058888" creator="lh3" modified="20180831114806605" modifier="lh3" tags="[[Library Documentations]]" title="Ketopt: parsing command-line arguments">
 <pre>!!Synopsis
 
 * Functionality: parse command-line arguments, supporting similar features to GNU's [[getopt_long|https://linux.die.net/man/3/getopt_long]], but with a slightly different interface.
@@ -8673,10 +8673,34 @@ int main(int argc, char *argv[])
   printf(&quot;Non-option arguments:&quot;);
   for (i = opt.ind; i &lt; argc; ++i)
     printf(&quot; %s&quot;, argv[i]);
-  fputc('\n', stderr);
+  putchar('\n');
   return 0;
 }
+```
+!!!Example 2: subcommand
+```c
+#include &lt;stdio.h&gt;
+#include &quot;ketopt.h&quot;
 
+int main(int argc, char *argv[])
+{
+  ketopt_t om = KETOPT_INIT, os = KETOPT_INIT;
+  int i, c;
+  while ((c = ketopt(&amp;om, argc, argv, 0, &quot;x&quot;, 0)) &gt;= 0)
+    if (c == 'x') printf(&quot;main -x\n&quot;);
+  if (om.ind == argc) {
+    fprintf(stderr, &quot;missing subcommand\n&quot;);
+    return 1;
+  }
+  printf(&quot;subcommand: %s\n&quot;, argv[om.ind]);
+  while ((c = ketopt(&amp;os, argc - om.ind, argv + om.ind, 1, &quot;x&quot;, 0)) &gt;= 0)
+    if (c == 'x') printf(&quot;sub -x\n&quot;);
+  printf(&quot;Non-option arguments:&quot;);
+  for (i = os.ind + om.ind; i &lt; argc; ++i)
+    printf(&quot; %s&quot;, argv[i]);
+  putchar('\n');
+  return 0;
+}
 ```</pre>
 </div>
 <div created="20160816212627236" creator="lh3" modified="20160816214517684" modifier="lh3" tags="[[Library Documentations]]" title="Kexpr: parsing mathematical expressions">
