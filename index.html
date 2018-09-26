@@ -185,6 +185,8 @@ Error message and password prompt
 
 <li>Generic Programming in C</li>
 
+<li>KAVL: generic intrusive AVL tree</li>
+
 <li>KBtree: generic ordered map</li>
 
 <li>Kdq: double-ended queue</li>
@@ -8249,7 +8251,7 @@ pre .xml .cdata {
 <div created="20141130022153074" creator="l" modified="20141130022153293" modifier="lh" title="$:/status/UserName">
 <pre>lh3</pre>
 </div>
-<div list="About [[Ketopt: parsing command-line arguments]]" title="$:/StoryList">
+<div list="About" title="$:/StoryList">
 <pre></pre>
 </div>
 <div plugin-type="info" title="$:/temp/info-plugin" type="application/json">
@@ -8384,7 +8386,7 @@ pre .xml .cdata {
 <div modified="20141201152658215" modifier="lh3" title="$:/view">
 <pre>classic</pre>
 </div>
-<div created="20141130022418365" creator="lh3" modified="20180831090751648" modifier="lh3" tags="TableOfContents" title="About">
+<div created="20141130022418365" creator="lh3" modified="20180926014539405" modifier="lh3" tags="TableOfContents" title="About">
 <pre>[[Klib|https://github.com/attractivechaos/klib/]] is a standalone and lightweight C library distributed under [[MIT/X11 license|http://en.wikipedia.org/wiki/MIT_License]]. Most components are independent of external libraries, except the standard C library, and independent of each other. To use a component of this library, you only need to copy a couple of files to your source code tree without worrying about library dependencies.
 
 Klib strives for efficiency and a small memory footprint. Some components, such as hash table, B-tree, vector and sorting algorithms, are among the most efficient implementations of similar algorithms or data structures in all programming languages, in terms of both speed and memory use.
@@ -8393,6 +8395,7 @@ Klib strives for efficiency and a small memory footprint. Some components, such 
 
 * [[khash.h|Khash: generic hash table]]: generic hash table based on double hashing.
 * [[kbtree.h|KBtree: generic ordered map]]: generic search tree based on B-tree.
+* [[kavl.h|KAVL: generic intrusive AVL tree]]: generic intrusive AVL tree.
 * [[ksort.h|Ksort: sorting, shuffling, heap and k-small]]: generic sort, including introsort, merge sort, heap sort, comb sort, Knuth shuffle and the k-small algorithm.
 * [[kseq.h|Kseq: stream buffer and FASTA/Q parser]]: generic stream buffer and a FASTA/FASTQ format parser.
 * kvec.h: generic dynamic array.
@@ -8562,6 +8565,50 @@ type at the compile time and is able to optimize the code to the same level
 as type-specific code. A generic library written with `void*` will not get such
 performance boost.
 </pre>
+</div>
+<div created="20180926014604864" creator="lh3" modified="20180926014613506" modifier="lh3" tags="[[Library Documentations]]" title="KAVL: generic intrusive AVL tree">
+<pre>!!Synopsis
+* Functionality: generic intrusive AVL tree additionally supporting counting
+* Library source code: [[kavl.h|https://github.com/attractivechaos/klib/blob/master/kavl.h]]
+* Dependencies: none
+* Related articles: [[A single-header generic intrusive AVL tree in ANSI C|https://attractivechaos.wordpress.com/2018/04/19/a-single-header-generic-intrusive-avl-tree-in-ansi-c/]]
+!!Example
+!!!Example 1: inserting letters &quot;MNOLKQOPHIA&quot; in order
+```c
+#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+#include &lt;stdlib.h&gt;
+#include &quot;kavl.h&quot;
+ 
+struct my_node {
+    char key;
+    KAVL_HEAD(struct my_node) head;
+};
+#define my_cmp(p, q) (((q)-&gt;key &lt; (p)-&gt;key) - ((p)-&gt;key &lt; (q)-&gt;key))
+KAVL_INIT(my, struct my_node, head, my_cmp)
+ 
+int main(void)
+{
+    const char *str = &quot;MNOLKQOPHIA&quot;; // from wiki, except a duplicate
+    struct my_node *root = 0;
+    int i, l = strlen(str);
+    for (i = 0; i &lt; l; ++i) {        // insert in the input order
+        struct my_node *q, *p = malloc(sizeof(*p));
+        p-&gt;key = str[i];
+        q = kavl_insert(my, &amp;root, p, 0);
+        if (p != q) free(p);         // if already present, free
+    }
+    kavl_itr_t(my) itr;
+    kavl_itr_first(my, root, &amp;itr);  // place at first
+    do {                             // traverse
+        const struct my_node *p = kavl_at(&amp;itr);
+        putchar(p-&gt;key);
+        free((void*)p);              // free node
+    } while (kavl_itr_next(my, &amp;itr));
+    putchar('\n');
+    return 0;
+}
+```</pre>
 </div>
 <div created="20141130174442465" creator="lh3" modified="20150917234352648" modifier="lh3" tags="[[Library Documentations]]" title="KBtree: generic ordered map">
 <pre>!!Synopsis
@@ -8775,12 +8822,12 @@ int main(int argc, char *argv[])
 }
 ```</pre>
 </div>
-<div created="20141130065006297" creator="lh3" modified="20160822122840599" modifier="lh3" tags="[[Library Documentations]]" title="Khash: generic hash table">
+<div created="20141130065006297" creator="lh3" modified="20180926014639767" modifier="lh3" tags="[[Library Documentations]]" title="Khash: generic hash table">
 <pre>!!Synopsis
 * Functionality: generic hash table with [[open addressing|http://en.wikipedia.org/wiki/Open_addressing]]
 * Library source code: [[khash.h|https://github.com/attractivechaos/klib/blob/master/khash.h]]
 * Dependencies: none
-* Related articles: [[Implementing generic hash library in C|https://attractivechaos.wordpress.com/2008/09/02/implementing-generic-hash-library-in-c/]], [[Another look at my old benchmarks|https://attractivechaos.wordpress.com/2008/10/07/another-look-at-my-old-benchmark/]] and [[Comparison of hash table libraries|https://attractivechaos.wordpress.com/2008/08/28/comparison-of-hash-table-libraries/]]
+* Related articles: [[Implementing generic hash library in C|https://attractivechaos.wordpress.com/2008/09/02/implementing-generic-hash-library-in-c/]], [[Another look at my old benchmarks|https://attractivechaos.wordpress.com/2008/10/07/another-look-at-my-old-benchmark/]], [[Comparison of hash table libraries|https://attractivechaos.wordpress.com/2008/08/28/comparison-of-hash-table-libraries/]] and [[Revisiting hash table performance|https://attractivechaos.wordpress.com/2018/01/13/revisiting-hash-table-performance/]]
 !!Example
 !!!Example 1: hash table for integers
 ```c
