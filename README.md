@@ -18,7 +18,7 @@ which includes most information in this README file.
 
 #### Common components
 
-* [khash.h][khash]: generic hash table based on [double hashing][2].
+* [khash.h][khash]: generic [hash table][2] with open addressing.
 * [kbtree.h][kbtree]: generic search tree based on [B-tree][3].
 * [kavl.h][kavl]: generic intrusive [AVL tree][wiki-avl].
 * [ksort.h][ksort]: generic sort, including [introsort][4], [merge sort][5], [heap sort][6], [comb sort][7], [Knuth shuffle][8] and the [k-small][9] algorithm.
@@ -196,7 +196,7 @@ can be found in the [test/][24] directory.
 * [Blog post][35] on the Hooke-Jeeve's algorithm for nonlinear programming.
 
 [1]: http://en.wikipedia.org/wiki/MIT_License
-[2]: http://en.wikipedia.org/wiki/Double_hashing
+[2]: https://en.wikipedia.org/wiki/Hash_table
 [3]: http://en.wikipedia.org/wiki/B-tree
 [4]: http://en.wikipedia.org/wiki/Introsort
 [5]: http://en.wikipedia.org/wiki/Merge_sort
