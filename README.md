@@ -18,14 +18,16 @@ which includes most information in this README file.
 
 #### Common components
 
-* [khash.h][khash]: generic hash table based on [double hashing][2].
+* [khash.h][khash]: generic [hash table][2] with open addressing.
 * [kbtree.h][kbtree]: generic search tree based on [B-tree][3].
+* [kavl.h][kavl]: generic intrusive [AVL tree][wiki-avl].
 * [ksort.h][ksort]: generic sort, including [introsort][4], [merge sort][5], [heap sort][6], [comb sort][7], [Knuth shuffle][8] and the [k-small][9] algorithm.
 * [kseq.h][kseq]: generic stream buffer and a [FASTA][10]/[FASTQ][11] format parser.
 * kvec.h: generic dynamic array.
 * klist.h: generic single-linked list and [memory pool][12].
 * kstring.{h,c}: basic string library.
 * kmath.{h,c}: numerical routines including [MT19937-64][13] [pseudorandom generator][14], basic [nonlinear programming][15] and a few special math functions.
+* [ketopt.h][ketopt]: portable command-line argument parser with getopt\_long-like API.
 
 #### Components for more specific use cases
 
@@ -194,7 +196,7 @@ can be found in the [test/][24] directory.
 * [Blog post][35] on the Hooke-Jeeve's algorithm for nonlinear programming.
 
 [1]: http://en.wikipedia.org/wiki/MIT_License
-[2]: http://en.wikipedia.org/wiki/Double_hashing
+[2]: https://en.wikipedia.org/wiki/Hash_table
 [3]: http://en.wikipedia.org/wiki/B-tree
 [4]: http://en.wikipedia.org/wiki/Introsort
 [5]: http://en.wikipedia.org/wiki/Merge_sort
@@ -231,7 +233,11 @@ can be found in the [test/][24] directory.
 [36]: http://en.wikipedia.org/wiki/C_preprocessor#Token_concatenation
 [37]: http://en.wikipedia.org/wiki/C_preprocessor
 
+[wiki-avl]: https://en.wikipedia.org/wiki/AVL_tree
+
 [kbtree]: http://attractivechaos.github.io/klib/#KBtree%3A%20generic%20ordered%20map:%5B%5BKBtree%3A%20generic%20ordered%20map%5D%5D
 [khash]: http://attractivechaos.github.io/klib/#Khash%3A%20generic%20hash%20table:%5B%5BKhash%3A%20generic%20hash%20table%5D%5D
 [kseq]: http://attractivechaos.github.io/klib/#Kseq%3A%20stream%20buffer%20and%20FASTA%2FQ%20parser:%5B%5BKseq%3A%20stream%20buffer%20and%20FASTA%2FQ%20parser%5D%5D
 [ksort]: http://attractivechaos.github.io/klib/#Ksort%3A%20sorting%2C%20shuffling%2C%20heap%20and%20k-small:%5B%5BKsort%3A%20sorting%2C%20shuffling%2C%20heap%20and%20k-small%5D%5D
+[kavl]: http://attractivechaos.github.io/klib/#KAVL%3A%20generic%20intrusive%20AVL%20tree
+[ketopt]: http://attractivechaos.github.io/klib/#Ketopt%3A%20parsing%20command-line%20arguments
