@@ -93,7 +93,7 @@ static int ketopt(ketopt_t *s, int argc, char *argv[], int permute, const char *
 			}
 		}
 	} else { /* a short option */
-		char *p;
+		const char *p;
 		if (s->pos == 0) s->pos = 1;
 		opt = s->opt = argv[s->i][s->pos++];
 		p = strchr((char*)ostr, opt);
