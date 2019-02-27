@@ -73,13 +73,17 @@ static int ketopt(ketopt_t *s, int argc, char *argv[], int permute, const char *
 		}
 		s->opt = 0, opt = '?', s->pos = -1;
 		if (longopts) { /* parse long options */
-			int k, n_matches = 0;
-			const ko_longopt_t *o = 0;
+			int k, n_exact = 0, n_partial = 0;
+			const ko_longopt_t *o = 0, *o_exact = 0, *o_partial = 0;
 			for (j = 2; argv[s->i][j] != '\0' && argv[s->i][j] != '='; ++j) {} /* find the end of the option name */
 			for (k = 0; longopts[k].name != 0; ++k)
-				if (strncmp(&argv[s->i][2], longopts[k].name, j - 2) == 0)
-					++n_matches, o = &longopts[k];
-			if (n_matches == 1) {
+				if (strncmp(&argv[s->i][2], longopts[k].name, j - 2) == 0) {
+					if (longopts[k].name[j - 2] == 0) ++n_exact, o_exact = &longopts[k];
+					else ++n_partial, o_partial = &longopts[k];
+				}
+			if (n_exact > 1 || (n_exact == 0 && n_partial > 1)) return '?';
+			o = n_exact == 1? o_exact : n_partial == 1? o_partial : 0;
+			if (o) {
 				s->opt = opt = o->val, s->longidx = o - longopts;
 				if (argv[s->i][j] == '=') s->arg = &argv[s->i][j + 1];
 				if (o->has_arg == 1 && argv[s->i][j] == '\0') {
@@ -92,7 +96,7 @@ static int ketopt(ketopt_t *s, int argc, char *argv[], int permute, const char *
 		char *p;
 		if (s->pos == 0) s->pos = 1;
 		opt = s->opt = argv[s->i][s->pos++];
-		p = strchr(ostr, opt);
+		p = strchr((char*)ostr, opt);
 		if (p == 0) {
 			opt = '?'; /* unknown option */
 		} else if (p[1] == ':') {
