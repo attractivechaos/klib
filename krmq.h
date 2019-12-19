@@ -107,6 +107,48 @@ int main(void) {
 		return (__type*)p; \
 	}
 
+#define __KRMQ_RMQ(suf, __scope, __type, __head,  __cmp, __lt2) \
+	__scope __type *krmq_rmq_##suf(const __type *root, const __type *lo, const __type *up) { /* CLOSED interval */ \
+		const __type *p = root, *path[2][KRMQ_MAX_DEPTH], *min; \
+		int plen[2] = {0, 0}, pcmp[2][KRMQ_MAX_DEPTH], i, cmp, lca; \
+		if (root == 0) return 0; \
+		while (p) { \
+			cmp = __cmp(lo, p); \
+			path[0][plen[0]] = p, pcmp[0][plen[0]++] = cmp; \
+			if (cmp < 0) p = p->__head.p[0]; \
+			else if (cmp > 0) p = p->__head.p[1]; \
+			else break; \
+		} \
+		p = root; \
+		while (p) { \
+			cmp = __cmp(up, p); \
+			path[1][plen[1]] = p, pcmp[1][plen[1]++] = cmp; \
+			if (cmp < 0) p = p->__head.p[0]; \
+			else if (cmp > 0) p = p->__head.p[1]; \
+			else break; \
+		} \
+		for (i = 0; i < plen[0] && i < plen[1]; ++i) \
+			if (path[0][i] == path[1][i] && pcmp[0][i] <= 0 && pcmp[1][i] >= 0) \
+				break; \
+		if (i == plen[0] || i == plen[1]) return 0; /* no elements in the closed interval */ \
+		lca = i, min = path[0][lca]; \
+		for (i = lca + 1; i < plen[0]; ++i) { \
+			if (pcmp[0][i] <= 0) { \
+				if (__lt2(path[0][i], min)) min = path[0][i]; \
+				if (path[0][i]->__head.p[1] && __lt2(path[0][i]->__head.p[1]->__head.s, min)) \
+					min = path[0][i]->__head.p[1]->__head.s; \
+			} \
+		} \
+		for (i = lca + 1; i < plen[1]; ++i) { \
+			if (pcmp[1][i] >= 0) { \
+				if (__lt2(path[1][i], min)) min = path[1][i]; \
+				if (path[1][i]->__head.p[0] && __lt2(path[1][i]->__head.p[0]->__head.s, min)) \
+					min = path[1][i]->__head.p[0]->__head.s; \
+			} \
+		} \
+		return (__type*)min; \
+	}
+
 #define __KRMQ_ROTATE(suf, __type, __head, __lt2) \
 	/* */ \
 	static inline void krmq_update_min_##suf(__type *p, const __type *q, const __type *r) { \
@@ -257,7 +299,7 @@ int main(void) {
 				r->__head.size = p->__head.size - 1; \
 			} \
 		} \
-		for (i = d - 1; i >= 0; --i) /* not sure why adding condition "path[i]==p" doesn't work */ \
+		for (i = d - 1; i >= 0; --i) /* not sure why adding condition "path[i]->__head.s==p" doesn't work */ \
 			krmq_update_min_##suf(path[i], path[i]->__head.p[0], path[i]->__head.p[1]); \
 		while (--d > 0) { \
 			__type *q = path[d]; \
@@ -361,6 +403,7 @@ int main(void) {
  */
 #define krmq_find(suf, root, x, cnt) krmq_find_##suf(root, x, cnt)
 #define krmq_interval(suf, root, x, lower, upper) krmq_interval_##suf(root, x, lower, upper)
+#define krmq_rmq(suf, root, lo, up) krmq_rmq_##suf(root, lo, up)
 
 /**
  * Delete a node from the tree
@@ -419,6 +462,7 @@ int main(void) {
 
 #define KRMQ_INIT2(suf, __scope, __type, __head, __cmp, __lt2) \
 	__KRMQ_FIND(suf, __scope, __type, __head,  __cmp) \
+	__KRMQ_RMQ(suf, __scope, __type, __head,  __cmp, __lt2) \
 	__KRMQ_ROTATE(suf, __type, __head, __lt2) \
 	__KRMQ_INSERT(suf, __scope, __type, __head, __cmp, __lt2) \
 	__KRMQ_ERASE(suf, __scope, __type, __head, __cmp, __lt2) \

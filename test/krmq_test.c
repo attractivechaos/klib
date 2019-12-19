@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <assert.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
@@ -36,6 +37,27 @@ int check(struct my_node *p, int *hh, int *min)
 			fprintf(stderr, "%d != %d at %c\n", p->head.size, c, p->key);
 		return c;
 	} else return 0;
+}
+
+int check_rmq(const struct my_node *root, int lo, int hi)
+{
+	struct my_node s, t, *p, *q;
+	krmq_itr_t(my) itr;
+	int min = INT_MAX;
+	s.key = lo, t.key = hi;
+	p = krmq_rmq(my, root, &s, &t);
+	krmq_interval(my, root, &s, 0, &q);
+	if (p == 0) return -1;
+	krmq_itr_find(my, root, q, &itr);
+	do {
+		const struct my_node *r = krmq_at(&itr);
+		if (r->key > hi) break;
+		//fprintf(stderr, "%c\t%d\n", r->key, r->val);
+		if (r->val < min) min = r->val;
+	} while (krmq_itr_next(my, &itr));
+	assert((min == INT_MAX && p == 0) || (min < INT_MAX && p));
+	if (min != p->val) fprintf(stderr, "rmq_min %d != %d\n", p->val, min);
+	return min;
 }
 
 int print_tree(const struct my_node *p)
@@ -95,6 +117,7 @@ int main(void)
 		if (p != q) free(p);
 		check(root, &h, &min);
 	}
+
 	shuffle(n, buf);
 	for (i = 0; i < n/2; ++i) {
 		t.key = buf[i];
@@ -104,6 +127,12 @@ int main(void)
 		check(root, &h, &min);
 	}
 	check_and_print(root);
+
+	check_rmq(root, '0', '9');
+	check_rmq(root, '!', '~');
+	check_rmq(root, 'A', 'Z');
+	check_rmq(root, 'F', 'G');
+	check_rmq(root, 'a', 'z');
 
 	krmq_itr_first(my, root, &itr);
 	do {
