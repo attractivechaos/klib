@@ -133,6 +133,12 @@ int main(void)
 	check_rmq(root, 'A', 'Z');
 	check_rmq(root, 'F', 'G');
 	check_rmq(root, 'a', 'z');
+	for (i = 0; i < n; ++i) {
+		int lo, hi;
+		lo = (int)(drand48() * n);
+		hi = (int)(drand48() * n);
+		check_rmq(root, lo, hi);
+	}
 
 	krmq_itr_first(my, root, &itr);
 	do {

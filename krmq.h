@@ -127,7 +127,7 @@ int main(void) {
 			else if (cmp > 0) p = p->__head.p[1]; \
 			else break; \
 		} \
-		for (i = 0; i < plen[0] && i < plen[1]; ++i) \
+		for (i = 0; i < plen[0] && i < plen[1]; ++i) /* find the LCA */ \
 			if (path[0][i] == path[1][i] && pcmp[0][i] <= 0 && pcmp[1][i] >= 0) \
 				break; \
 		if (i == plen[0] || i == plen[1]) return 0; /* no elements in the closed interval */ \
