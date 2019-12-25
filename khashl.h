@@ -89,17 +89,13 @@ typedef khint32_t khint_t;
  * Simple private functions *
  ****************************/
 
-#ifndef kroundup32
-#define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
-#endif
-
 #define __kh_used(flag, i)       (flag[i>>5] >> (i&0x1fU) & 1U)
 #define __kh_set_used(flag, i)   (flag[i>>5] |= 1U<<(i&0x1fU))
 #define __kh_set_unused(flag, i) (flag[i>>5] &= ~(1U<<(i&0x1fU)))
 
 #define __kh_fsize(m) ((m) < 32? 1 : (m)>>5)
 
-static kh_inline khint_t __kh_h2b(uint32_t hash, uint32_t bits) { return hash * 2654435769U >> (32 - bits); }
+static kh_inline khint_t __kh_h2b(khint_t hash, khint_t bits) { return hash * 2654435769U >> (32 - bits); }
 
 /*******************
  * Hash table base *
@@ -107,7 +103,7 @@ static kh_inline khint_t __kh_h2b(uint32_t hash, uint32_t bits) { return hash * 
 
 #define __KHASHL_TYPE(HType, khkey_t) \
 	typedef struct { \
-		khint32_t bits, count; \
+		khint_t bits, count; \
 		khint32_t *used; \
 		khkey_t *keys; \
 	} HType;
@@ -156,10 +152,9 @@ static kh_inline khint_t __kh_h2b(uint32_t hash, uint32_t bits) { return hash * 
 #define __KHASHL_IMPL_RESIZE(SCOPE, HType, prefix, khkey_t, __hash_fn, __hash_eq) \
 	SCOPE int prefix##_resize(HType *h, khint_t new_n_buckets) { \
 		khint32_t *new_used = 0; \
-		khint_t j, n_buckets, new_bits, new_mask; \
-		kroundup32(new_n_buckets); \
-		for (j = 0; j < 32; ++j) \
-			if (new_n_buckets>>j&1) break; \
+		khint_t j = 0, x = new_n_buckets, n_buckets, new_bits, new_mask; \
+		while ((x >>= 1) != 0) ++j; \
+		if (new_n_buckets & (new_n_buckets - 1)) ++j; \
 		new_bits = j > 2? j : 2; \
 		new_n_buckets = 1U << new_bits; \
 		if (h->count > (new_n_buckets>>1) + (new_n_buckets>>2)) return 0; /* requested size is too small */ \
