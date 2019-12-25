@@ -64,8 +64,6 @@ typedef unsigned long long khint64_t;
 #endif
 #endif /* klib_unused */
 
-#define __kh_packed __attribute__ ((__packed__))
-
 #define KH_LOCAL static kh_inline klib_unused
 
 typedef khint32_t khint_t;
@@ -262,6 +260,7 @@ static kh_inline khint_t __kh_h2b(uint32_t hash, uint32_t bits) { return hash * 
  * More convenient interface *
  *****************************/
 
+#define __kh_packed __attribute__ ((__packed__))
 #define __kh_cached_hash(x) ((x).hash)
 
 #define KHASHL_SET_INIT(SCOPE, HType, prefix, khkey_t, __hash_fn, __hash_eq) \
@@ -327,13 +326,13 @@ static kh_inline khint_t __kh_h2b(uint32_t hash, uint32_t bits) { return hash * 
 #define kh_hash_dummy(x) ((khint_t)(x))
 
 static kh_inline khint_t kh_hash_uint32(khint_t key) {
-    key += ~(key << 15);
-    key ^=  (key >> 10);
-    key +=  (key << 3);
-    key ^=  (key >> 6);
-    key += ~(key << 11);
-    key ^=  (key >> 16);
-    return key;
+	key += ~(key << 15);
+	key ^=  (key >> 10);
+	key +=  (key << 3);
+	key ^=  (key >> 6);
+	key += ~(key << 11);
+	key ^=  (key >> 16);
+	return key;
 }
 
 static kh_inline khint_t kh_hash_uint64(khint64_t key) {
