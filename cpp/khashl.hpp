@@ -1,15 +1,19 @@
 #ifndef __AC_KHASHL_HPP
 #define __AC_KHASHL_HPP
 
-#include <functional>
+#include <functional> // for std::equal_to
 #include <cstdlib>
 #include <cstring>
 #include <stdint.h>
 
 namespace klib {
 
+/***********
+ * HashSet *
+ ***********/
+
 template<class T, class Hash, class Eq = std::equal_to<T>, typename khint_t = uint32_t>
-class KHashL {
+class KHashSet {
 	khint_t bits, count;
 	uint32_t *used;
 	T *keys;
@@ -17,15 +21,15 @@ class KHashL {
 	static inline void __kh_set_used(uint32_t *flag, khint_t i) { flag[i>>5] |= 1U<<(i&0x1fU); };
 	static inline void __kh_set_unused(uint32_t *flag, khint_t i) { flag[i>>5] &= ~(1U<<(i&0x1fU)); };
 	static inline khint_t __kh_fsize(khint_t m) { return m<32? 1 : m>>5; }
-	static inline uint32_t __kh_h2b(uint32_t hash, khint_t bits) { return hash * 2654435769U >> (32 - bits); }
-	static inline uint64_t __kh_h2b(uint64_t hash, khint_t bits) { return hash * 11400714819323198485ULL >> (64 - bits); }
+	static inline khint_t __kh_h2b(uint32_t hash, khint_t bits) { return hash * 2654435769U >> (32 - bits); }
+	static inline khint_t __kh_h2b(uint64_t hash, khint_t bits) { return hash * 11400714819323198485ULL >> (64 - bits); }
 public:
-	KHashL() : bits(0), count(0), used(0), keys(0) {};
-	~KHashL() { std::free(used); std::free(keys); };
+	KHashSet() : bits(0), count(0), used(0), keys(0) {};
+	~KHashSet() { std::free(used); std::free(keys); };
 	inline khint_t n_buckets() const { return used? khint_t(1) << bits : 0; }
 	inline khint_t end() const { return n_buckets(); }
 	inline khint_t size() const { return count; }
-	inline T &at(khint_t x) { return keys[x]; };
+	inline T &key(khint_t x) { return keys[x]; };
 	inline bool exist(khint_t x) const { return (__kh_used(used, x) != 0); }
 	void clear(void) { 
 		if (!used) return;
@@ -125,6 +129,99 @@ public:
 		return 1;
 	}
 };
+
+/***********
+ * HashMap *
+ ***********/
+
+template<class KType, class VType>
+struct KHashMapBucket { KType key; VType val; };
+
+template<class T, class Hash, typename khint_t>
+struct KHashMapHash { khint_t operator() (const T &a) const { return Hash()(a.key); } };
+
+template<class T, class Eq>
+struct KHashMapEq { bool operator() (const T &a, const T &b) const { return Eq()(a.key, b.key); } };
+
+template<class KType, class VType, class Hash, class Eq=std::equal_to<KType>, typename khint_t=uint32_t>
+class KHashMap : public KHashSet<KHashMapBucket<KType, VType>,
+		KHashMapHash<KHashMapBucket<KType, VType>, Hash, khint_t>,
+		KHashMapEq<KHashMapBucket<KType, VType>, Eq>, khint_t>
+{
+	typedef KHashMapBucket<KType, VType> bucket_t;
+	typedef KHashSet<bucket_t, KHashMapHash<bucket_t, Hash, khint_t>, KHashMapEq<bucket_t, Eq>, khint_t> hashset_t;
+public:
+	khint_t get(const KType &key) const {
+		bucket_t t = { .key = key };
+		return hashset_t::get(t);
+	}
+	khint_t put(const KType &key, int *absent) {
+		bucket_t t = { .key = key };
+		return hashset_t::put(t, absent);
+	}
+	inline KType &key(khint_t i) { return hashset_t::key(i).key; }
+	inline VType &value(khint_t i) { return hashset_t::key(i).val; }
+};
+
+/****************************
+ * HashSet with cached hash *
+ ****************************/
+
+template<class KType, typename khint_t>
+struct KHashSetCachedBucket { KType key; khint_t hash; };
+
+template<class T, typename khint_t>
+struct KHashCachedHash { khint_t operator() (const T &a) const { return a.hash; } };
+
+template<class T, class Eq>
+struct KHashCachedEq { bool operator() (const T &a, const T &b) const { return a.hash == b.hash && Eq()(a.key, b.key); } };
+
+template<class KType, class Hash, class Eq = std::equal_to<KType>, typename khint_t = uint32_t>
+class KHashSetCached : public KHashSet<KHashSetCachedBucket<KType, khint_t>,
+		KHashCachedHash<KHashSetCachedBucket<KType, khint_t>, khint_t>,
+		KHashCachedEq<KHashSetCachedBucket<KType, khint_t>, Eq>, khint_t>
+{
+	typedef KHashSetCachedBucket<KType, khint_t> bucket_t;
+	typedef KHashSet<bucket_t, KHashCachedHash<bucket_t, khint_t>, KHashCachedEq<bucket_t, Eq>, khint_t> hashset_t;
+public:
+	khint_t get(const KType &key) const {
+		bucket_t t = { .key = key, .hash = Hash()(key) };
+		return hashset_t::get(t);
+	}
+	khint_t put(const KType &key, int *absent) {
+		bucket_t t = { .key = key, .hash = Hash()(key) };
+		return hashset_t::put(t, absent);
+	}
+	inline KType &key(khint_t i) { return hashset_t::key(i).key; }
+};
+
+/****************************
+ * HashMap with cached hash *
+ ****************************/
+
+template<class KType, class VType, typename khint_t>
+struct KHashMapCachedBucket { KType key; VType val; khint_t hash; };
+
+template<class KType, class VType, class Hash, class Eq = std::equal_to<KType>, typename khint_t = uint32_t>
+class KHashMapCached : public KHashSet<KHashMapCachedBucket<KType, VType, khint_t>,
+		KHashCachedHash<KHashMapCachedBucket<KType, VType, khint_t>, khint_t>,
+		KHashCachedEq<KHashMapCachedBucket<KType, VType, khint_t>, Eq>, khint_t>
+{
+	typedef KHashMapCachedBucket<KType, VType, khint_t> bucket_t;
+	typedef KHashSet<bucket_t, KHashCachedHash<bucket_t, khint_t>, KHashCachedEq<bucket_t, Eq>, khint_t> hashset_t;
+public:
+	khint_t get(const KType &key) const {
+		bucket_t t = { .key = key, .hash = Hash()(key) };
+		return hashset_t::get(t);
+	}
+	khint_t put(const KType &key, int *absent) {
+		bucket_t t = { .key = key, .hash = Hash()(key) };
+		return hashset_t::put(t, absent);
+	}
+	inline KType &key(khint_t i) { return hashset_t::key(i).key; }
+	inline VType &value(khint_t i) { return hashset_t::key(i).val; }
+};
+
 }
 
 #endif /* __AC_KHASHL_HPP */

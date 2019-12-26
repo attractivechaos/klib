@@ -174,9 +174,8 @@ static kh_inline khint_t __kh_h2b(khint_t hash, khint_t bits) { return hash * 26
 			key = h->keys[j]; \
 			__kh_set_unused(h->used, j); \
 			while (1) { /* kick-out process; sort of like in Cuckoo hashing */ \
-				khint_t k, i; \
-				k = __hash_fn(key); \
-				i = __kh_h2b(k, new_bits); \
+				khint_t i; \
+				i = __kh_h2b(__hash_fn(key), new_bits); \
 				while (__kh_used(new_used, i)) i = (i + 1) & new_mask; \
 				__kh_set_used(new_used, i); \
 				if (i < n_buckets && __kh_used(h->used, i)) { /* kick out the existing element */ \
