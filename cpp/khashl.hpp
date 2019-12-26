@@ -2,9 +2,30 @@
 #define __AC_KHASHL_HPP
 
 #include <functional> // for std::equal_to
-#include <cstdlib>
-#include <cstring>
-#include <stdint.h>
+#include <cstdlib>    // for malloc() etc
+#include <cstring>    // for memset()
+#include <stdint.h>   // for uint32_t
+
+/* // ==> Code example <==
+#include <cstdio>
+#include "khashl.hpp"
+
+int main(void)
+{
+	klib::KHashMap<uint32_t, int, std::hash<uint32_t> > h; // NB: C++98 doesn't have std::hash
+	uint32_t k;
+	int absent;
+	h[43] = 1, h[53] = 2, h[63] = 3, h[73] = 4;       // one way to insert
+	k = h.put(53, &absent), h.value(k) = -2;          // another way to insert
+	if (!absent) printf("already in the table\n");    //   which allows to test presence
+	if (h.get(33) == h.end()) printf("not found!\n"); // test presence without insertion
+	h.del(h.get(43));               // deletion
+	for (k = 0; k != h.end(); ++k)  // traversal
+		if (h.occupied(k))          // some buckets are not occupied; skip them
+			printf("%u => %d\n", h.key(k), h.value(k));
+	return 0;
+}
+*/
 
 namespace klib {
 
@@ -30,7 +51,7 @@ public:
 	inline khint_t end() const { return n_buckets(); }
 	inline khint_t size() const { return count; }
 	inline T &key(khint_t x) { return keys[x]; };
-	inline bool exist(khint_t x) const { return (__kh_used(used, x) != 0); }
+	inline bool occupied(khint_t x) const { return (__kh_used(used, x) != 0); }
 	void clear(void) { 
 		if (!used) return;
 		memset(used, 0, __kh_fsize(n_buckets()) * sizeof(uint32_t));
@@ -90,13 +111,15 @@ public:
 		used = new_used, bits = new_bits;
 		return 0;
 	}
-	khint_t put(const T &key, int *absent) {
+	khint_t put(const T &key, int *absent_ = 0) {
 		khint_t nb, i, last, mask;
+		int absent = -1;
 		nb = n_buckets();
-		*absent = -1;
 		if (count >= (nb>>1) + (nb>>2)) { /* rehashing */
-			if (resize(nb + khint_t(1)) < 0)
+			if (resize(nb + khint_t(1)) < 0) {
+				if (absent_) *absent_ = -1;
 				return nb;
+			}
 			nb = n_buckets();
 		} /* TODO: to implement automatically shrinking; resize() already support shrinking */
 		mask = nb - 1;
@@ -108,15 +131,15 @@ public:
 		if (!__kh_used(used, i)) { /* not present at all */
 			keys[i] = key;
 			__kh_set_used(used, i);
-			++count;
-			*absent = 1;
-		} else *absent = 0; /* Don't touch keys[i] if present */
+			++count, absent = 1;
+		} else absent = 0; /* Don't touch keys[i] if present */
+		if (absent_) *absent_ = absent;
 		return i;
 	}
 	int del(khint_t i) {
-		khint_t j = i, k, mask;
-		if (keys == 0) return 0;
-		mask = n_buckets() - khint_t(1);
+		khint_t j = i, k, mask, nb = n_buckets();
+		if (keys == 0 || i >= nb) return 0;
+		mask = nb - khint_t(1);
 		while (1) {
 			j = (j + khint_t(1)) & mask;
 			if (j == i || !__kh_used(used, j)) break; /* j==i only when the table is completely full */
@@ -161,6 +184,10 @@ public:
 	}
 	inline KType &key(khint_t i) { return hashset_t::key(i).key; }
 	inline VType &value(khint_t i) { return hashset_t::key(i).val; }
+	inline VType &operator[] (const KType &key) {
+		bucket_t t = { .key = key };
+		return value(hashset_t::put(t));
+	}
 };
 
 /****************************
@@ -220,6 +247,10 @@ public:
 	}
 	inline KType &key(khint_t i) { return hashset_t::key(i).key; }
 	inline VType &value(khint_t i) { return hashset_t::key(i).val; }
+	inline VType &operator[] (const KType &key) {
+		bucket_t t = { .key = key, .hash = Hash()(key) };
+		return value(hashset_t::put(t));
+	}
 };
 
 }
