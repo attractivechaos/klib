@@ -175,17 +175,17 @@ class KHashMap : public KHashSet<KHashMapBucket<KType, VType>,
 	typedef KHashSet<bucket_t, KHashMapHash<bucket_t, Hash, khint_t>, KHashMapEq<bucket_t, Eq>, khint_t> hashset_t;
 public:
 	khint_t get(const KType &key) const {
-		bucket_t t = { .key = key };
+		bucket_t t = { key, VType() };
 		return hashset_t::get(t);
 	}
 	khint_t put(const KType &key, int *absent) {
-		bucket_t t = { .key = key };
+		bucket_t t = { key, VType() };
 		return hashset_t::put(t, absent);
 	}
 	inline KType &key(khint_t i) { return hashset_t::key(i).key; }
 	inline VType &value(khint_t i) { return hashset_t::key(i).val; }
 	inline VType &operator[] (const KType &key) {
-		bucket_t t = { .key = key };
+		bucket_t t = { key, VType() };
 		return value(hashset_t::put(t));
 	}
 };
@@ -212,11 +212,11 @@ class KHashSetCached : public KHashSet<KHashSetCachedBucket<KType, khint_t>,
 	typedef KHashSet<bucket_t, KHashCachedHash<bucket_t, khint_t>, KHashCachedEq<bucket_t, Eq>, khint_t> hashset_t;
 public:
 	khint_t get(const KType &key) const {
-		bucket_t t = { .key = key, .hash = Hash()(key) };
+		bucket_t t = { key, Hash()(key) };
 		return hashset_t::get(t);
 	}
 	khint_t put(const KType &key, int *absent) {
-		bucket_t t = { .key = key, .hash = Hash()(key) };
+		bucket_t t = { key, Hash()(key) };
 		return hashset_t::put(t, absent);
 	}
 	inline KType &key(khint_t i) { return hashset_t::key(i).key; }
@@ -238,17 +238,17 @@ class KHashMapCached : public KHashSet<KHashMapCachedBucket<KType, VType, khint_
 	typedef KHashSet<bucket_t, KHashCachedHash<bucket_t, khint_t>, KHashCachedEq<bucket_t, Eq>, khint_t> hashset_t;
 public:
 	khint_t get(const KType &key) const {
-		bucket_t t = { .key = key, .hash = Hash()(key) };
+		bucket_t t = { key, VType(), Hash()(key) };
 		return hashset_t::get(t);
 	}
 	khint_t put(const KType &key, int *absent) {
-		bucket_t t = { .key = key, .hash = Hash()(key) };
+		bucket_t t = { key, VType(), Hash()(key) };
 		return hashset_t::put(t, absent);
 	}
 	inline KType &key(khint_t i) { return hashset_t::key(i).key; }
 	inline VType &value(khint_t i) { return hashset_t::key(i).val; }
 	inline VType &operator[] (const KType &key) {
-		bucket_t t = { .key = key, .hash = Hash()(key) };
+		bucket_t t = { key, VType(), Hash()(key) };
 		return value(hashset_t::put(t));
 	}
 };
