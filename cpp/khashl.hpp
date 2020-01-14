@@ -144,7 +144,7 @@ public:
 			j = (j + khint_t(1)) & mask;
 			if (j == i || !__kh_used(used, j)) break; /* j==i only when the table is completely full */
 			k = __kh_h2b(Hash()(keys[j]), bits);
-			if (k <= i || k > j)
+			if ((j > i && (k <= i || k > j)) || (j < i && (k <= i && k > j)))
 				keys[i] = keys[j], i = j;
 		}
 		__kh_set_unused(used, i);

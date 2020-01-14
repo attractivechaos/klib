@@ -230,7 +230,7 @@ static kh_inline khint_t __kh_h2b(khint_t hash, khint_t bits) { return hash * 26
 			j = (j + 1U) & mask; \
 			if (j == i || !__kh_used(h->used, j)) break; /* j==i only when the table is completely full */ \
 			k = __kh_h2b(__hash_fn(h->keys[j]), h->bits); \
-			if (k <= i || k > j) \
+			if ((j > i && (k <= i || k > j)) || (j < i && (k <= i && k > j))) \
 				h->keys[i] = h->keys[j], i = j; \
 		} \
 		__kh_set_unused(h->used, i); \
