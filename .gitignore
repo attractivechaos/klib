@@ -29,6 +29,7 @@ test/khash_keith2
 test/khash_test
 test/klist_test
 test/kmin_test
+test/knetfile_test
 test/kseq_bench
 test/kseq_bench2
 test/kseq_test
