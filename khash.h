@@ -451,6 +451,13 @@ static kh_inline khint_t __ac_Wang_hash(khint_t key)
 #define kh_destroy(name, h) kh_destroy_##name(h)
 
 /*! @function
+  @abstract     Free the memory of a hash table, keep the [khash_t(name)*].
+  @param  name  Name of the hash table [symbol]
+  @param  h     Pointer to the hash table [khash_t(name)*]
+ */
+#define kh_release(name, h) kh_release_##name(h)
+
+/*! @function
   @abstract     Reset a hash table without deallocating memory.
   @param  name  Name of the hash table [symbol]
   @param  h     Pointer to the hash table [khash_t(name)*]
