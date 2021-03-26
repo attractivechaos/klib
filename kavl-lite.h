@@ -44,16 +44,16 @@ int main(void) {
   for (i = 0; i < l; ++i) {        // insert in the input order
     struct my_node *q, *p = malloc(sizeof(*p));
     p->key = str[i];
-    q = kavl_insert(my, &root, p);
+    q = my_insert(&root, p);
     if (p != q) free(p);           // if already present, free
   }
-  kavl_itr_t(my) itr;
-  kavl_itr_first(my, root, &itr);  // place at first
+  my_itr_t itr;
+  my_itr_first(root, &itr);  // place at first
   do {                             // traverse
     const struct my_node *p = kavl_at(&itr);
     putchar(p->key);
     free((void*)p);                // free node
-  } while (kavl_itr_next(my, &itr));
+  } while (my_itr_next(&itr));
   putchar('\n');
   return 0;
 }
