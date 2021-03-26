@@ -44,7 +44,7 @@ int main(void) {
   for (i = 0; i < l; ++i) {        // insert in the input order
     struct my_node *q, *p = malloc(sizeof(*p));
     p->key = str[i];
-    q = kavl_insert(my, &root, p, 0);
+    q = kavl_insert(my, &root, p);
     if (p != q) free(p);           // if already present, free
   }
   kavl_itr_t(my) itr;
@@ -74,8 +74,8 @@ int main(void) {
 		signed char balance; /* balance factor */ \
 	}
 
-#define __KAVL_FIND(suf, __scope, __type, __head,  __cmp) \
-	__scope __type *kavl_find_##suf(const __type *root, const __type *x) { \
+#define __KAVL_FIND(pre, __scope, __type, __head,  __cmp) \
+	__scope __type *pre##_find(const __type *root, const __type *x) { \
 		const __type *p = root; \
 		while (p != 0) { \
 			int cmp; \
@@ -87,9 +87,9 @@ int main(void) {
 		return (__type*)p; \
 	}
 
-#define __KAVL_ROTATE(suf, __type, __head) \
+#define __KAVL_ROTATE(pre, __type, __head) \
 	/* one rotation: (a,(b,c)q)p => ((a,b)p,c)q */ \
-	static inline __type *kavl_rotate1_##suf(__type *p, int dir) { /* dir=0 to left; dir=1 to right */ \
+	static inline __type *pre##_rotate1(__type *p, int dir) { /* dir=0 to left; dir=1 to right */ \
 		int opp = 1 - dir; /* opposite direction */ \
 		__type *q = p->__head.p[opp]; \
 		p->__head.p[opp] = q->__head.p[dir]; \
@@ -97,7 +97,7 @@ int main(void) {
 		return q; \
 	} \
 	/* two consecutive rotations: (a,((b,c)r,d)q)p => ((a,b)p,(c,d)q)r */ \
-	static inline __type *kavl_rotate2_##suf(__type *p, int dir) { \
+	static inline __type *pre##_rotate2(__type *p, int dir) { \
 		int b1, opp = 1 - dir; \
 		__type *q = p->__head.p[opp], *r = q->__head.p[dir]; \
 		p->__head.p[opp] = r->__head.p[dir]; \
@@ -112,8 +112,8 @@ int main(void) {
 		return r; \
 	}
 
-#define __KAVL_INSERT(suf, __scope, __type, __head, __cmp) \
-	__scope __type *kavl_insert_##suf(__type **root_, __type *x) { \
+#define __KAVL_INSERT(pre, __scope, __type, __head, __cmp) \
+	__scope __type *pre##_insert(__type **root_, __type *x) { \
 		unsigned char stack[KAVL_MAX_DEPTH]; \
 		__type *path[KAVL_MAX_DEPTH]; \
 		__type *bp, *bq; \
@@ -143,16 +143,16 @@ int main(void) {
 		b1 = which == 0? +1 : -1; \
 		q = bp->__head.p[1 - which]; \
 		if (q->__head.balance == b1) { \
-			r = kavl_rotate1_##suf(bp, which); \
+			r = pre##_rotate1(bp, which); \
 			q->__head.balance = bp->__head.balance = 0; \
-		} else r = kavl_rotate2_##suf(bp, which); \
+		} else r = pre##_rotate2(bp, which); \
 		if (bq == 0) *root_ = r; \
 		else bq->__head.p[bp != bq->__head.p[0]] = r; \
 		return x; \
 	}
 
-#define __KAVL_ERASE(suf, __scope, __type, __head, __cmp) \
-	__scope __type *kavl_erase_##suf(__type **root_, const __type *x) { \
+#define __KAVL_ERASE(pre, __scope, __type, __head, __cmp) \
+	__scope __type *pre##_erase(__type **root_, const __type *x) { \
 		__type *p, *path[KAVL_MAX_DEPTH], fake; \
 		unsigned char dir[KAVL_MAX_DEPTH]; \
 		int d = 0, cmp; \
@@ -207,9 +207,9 @@ int main(void) {
 			else if (q->__head.balance == b2) { \
 				__type *r = q->__head.p[other]; \
 				if (r->__head.balance == -b1) { \
-					path[d-1]->__head.p[dir[d-1]] = kavl_rotate2_##suf(q, which); \
+					path[d-1]->__head.p[dir[d-1]] = pre##_rotate2(q, which); \
 				} else { \
-					path[d-1]->__head.p[dir[d-1]] = kavl_rotate1_##suf(q, which); \
+					path[d-1]->__head.p[dir[d-1]] = pre##_rotate1(q, which); \
 					if (r->__head.balance == 0) { \
 						r->__head.balance = -b1; \
 						q->__head.balance = b1; \
@@ -236,17 +236,17 @@ int main(void) {
 		} \
 	} while (0)
 
-#define __KAVL_ITR(suf, __scope, __type, __head, __cmp) \
-	struct kavl_itr_##suf { \
+#define __KAVL_ITR(pre, __scope, __type, __head, __cmp) \
+	typedef struct pre##_itr_t { \
 		const __type *stack[KAVL_MAX_DEPTH], **top, *right; /* _right_ points to the right child of *top */ \
-	}; \
-	__scope void kavl_itr_first_##suf(const __type *root, struct kavl_itr_##suf *itr) { \
+	} pre##_itr_t; \
+	__scope void pre##_itr_first(const __type *root, struct pre##_itr_t *itr) { \
 		const __type *p; \
 		for (itr->top = itr->stack - 1, p = root; p; p = p->__head.p[0]) \
 			*++itr->top = p; \
 		itr->right = (*itr->top)->__head.p[1]; \
 	} \
-	__scope int kavl_itr_find_##suf(const __type *root, const __type *x, struct kavl_itr_##suf *itr) { \
+	__scope int pre##_itr_find(const __type *root, const __type *x, struct pre##_itr_t *itr) { \
 		const __type *p = root; \
 		itr->top = itr->stack - 1; \
 		while (p != 0) { \
@@ -265,7 +265,7 @@ int main(void) {
 			return 0; \
 		} else return 0; \
 	} \
-	__scope int kavl_itr_next_##suf(struct kavl_itr_##suf *itr) { \
+	__scope int pre##_itr_next(struct pre##_itr_t *itr) { \
 		for (;;) { \
 			const __type *p; \
 			for (p = itr->right, --itr->top; p; p = p->__head.p[0]) \
@@ -276,91 +276,16 @@ int main(void) {
 		} \
 	}
 
-/**
- * Insert a node to the tree
- *
- * @param suf     name suffix used in KAVL_INIT()
- * @param proot   pointer to the root of the tree (in/out: root may change)
- * @param x       node to insert (in)
- *
- * @return _x_ if not present in the tree, or the node equal to x.
- */
-#define kavl_insert(suf, proot, x) kavl_insert_##suf(proot, x)
-
-/**
- * Find a node in the tree
- *
- * @param suf     name suffix used in KAVL_INIT()
- * @param root    root of the tree
- * @param x       node value to find (in)
- * @param cnt     number of nodes smaller than or equal to _x_; can be NULL (out)
- *
- * @return node equal to _x_ if present, or NULL if absent
- */
-#define kavl_find(suf, root, x) kavl_find_##suf(root, x)
-
-/**
- * Delete a node from the tree
- *
- * @param suf     name suffix used in KAVL_INIT()
- * @param proot   pointer to the root of the tree (in/out: root may change)
- * @param x       node value to delete; if NULL, delete the first node (in)
- *
- * @return node removed from the tree if present, or NULL if absent
- */
-#define kavl_erase(suf, proot, x) kavl_erase_##suf(proot, x)
-#define kavl_erase_first(suf, proot) kavl_erase_##suf(proot, 0, 0)
-
-#define kavl_itr_t(suf) struct kavl_itr_##suf
-
-/**
- * Place the iterator at the smallest object
- *
- * @param suf     name suffix used in KAVL_INIT()
- * @param root    root of the tree
- * @param itr     iterator
- */
-#define kavl_itr_first(suf, root, itr) kavl_itr_first_##suf(root, itr)
-
-/**
- * Place the iterator at the object equal to or greater than the query
- *
- * @param suf     name suffix used in KAVL_INIT()
- * @param root    root of the tree
- * @param x       query (in)
- * @param itr     iterator (out)
- *
- * @return 1 if find; 0 otherwise. kavl_at(itr) is NULL if and only if query is
- *         larger than all objects in the tree
- */
-#define kavl_itr_find(suf, root, x, itr) kavl_itr_find_##suf(root, x, itr)
-
-/**
- * Move to the next object in order
- *
- * @param itr     iterator (modified)
- *
- * @return 1 if there is a next object; 0 otherwise
- */
-#define kavl_itr_next(suf, itr) kavl_itr_next_##suf(itr)
-
-/**
- * Return the pointer at the iterator
- *
- * @param itr     iterator
- *
- * @return pointer if present; NULL otherwise
- */
 #define kavl_at(itr) ((itr)->top < (itr)->stack? 0 : *(itr)->top)
 
-#define KAVL_INIT2(suf, __scope, __type, __head, __cmp) \
-	__KAVL_FIND(suf, __scope, __type, __head,  __cmp) \
-	__KAVL_ROTATE(suf, __type, __head) \
-	__KAVL_INSERT(suf, __scope, __type, __head, __cmp) \
-	__KAVL_ERASE(suf, __scope, __type, __head, __cmp) \
-	__KAVL_ITR(suf, __scope, __type, __head, __cmp)
+#define KAVL_INIT2(pre, __scope, __type, __head, __cmp) \
+	__KAVL_FIND(pre, __scope, __type, __head,  __cmp) \
+	__KAVL_ROTATE(pre, __type, __head) \
+	__KAVL_INSERT(pre, __scope, __type, __head, __cmp) \
+	__KAVL_ERASE(pre, __scope, __type, __head, __cmp) \
+	__KAVL_ITR(pre, __scope, __type, __head, __cmp)
 
-#define KAVL_INIT(suf, __type, __head, __cmp) \
-	KAVL_INIT2(suf,, __type, __head, __cmp)
+#define KAVL_INIT(pre, __type, __head, __cmp) \
+	KAVL_INIT2(pre,, __type, __head, __cmp)
 
 #endif

@@ -30,7 +30,7 @@ int main(void)
 	int i, n;
 	struct my_node *root = 0;
 	struct my_node *p, *q, t;
-	kavl_itr_t(my) itr;
+	my_itr_t itr;
 
 	for (i = 33, n = 0; i <= 126; ++i)
 		if (i != '(' && i != ')' && i != '.' && i != ';')
@@ -39,22 +39,22 @@ int main(void)
 	for (i = 0; i < n; ++i) {
 		p = CALLOC(struct my_node, 1);
 		p->key = buf[i];
-		q = kavl_insert(my, &root, p);
+		q = my_insert(&root, p);
 		if (p != q) free(p);
 	}
 	shuffle(n, buf);
 	for (i = 0; i < n/2; ++i) {
 		t.key = buf[i];
-		q = kavl_erase(my, &root, &t);
+		q = my_erase(&root, &t);
 		if (q) free(q);
 	}
 
-	kavl_itr_first(my, root, &itr);
+	my_itr_first(root, &itr);
 	do {
 		const struct my_node *r = kavl_at(&itr);
 		putchar(r->key);
 		free((void*)r);
-	} while (kavl_itr_next(my, &itr));
+	} while (my_itr_next(&itr));
 	putchar('\n');
 	return 0;
 }
