@@ -1,6 +1,6 @@
 /* The MIT License
 
-   Copyright (c) 2018 by Attractive Chaos <attractor@live.co.uk>
+   Copyright (c) 2021 by Attractive Chaos <attractor@live.co.uk>
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -32,10 +32,10 @@
 
 struct my_node {
   char key;
-  KAVL_HEAD(struct my_node) head;
+  KAVLL_HEAD(struct my_node) head;
 };
 #define my_cmp(p, q) (((q)->key < (p)->key) - ((p)->key < (q)->key))
-KAVL_INIT(my, struct my_node, head, my_cmp)
+KAVLL_INIT(my, struct my_node, head, my_cmp)
 
 int main(void) {
   const char *str = "MNOLKQOPHIA"; // from wiki, except a duplicate
@@ -50,7 +50,7 @@ int main(void) {
   my_itr_t itr;
   my_itr_first(root, &itr);  // place at first
   do {                             // traverse
-    const struct my_node *p = kavl_at(&itr);
+    const struct my_node *p = kavll_at(&itr);
     putchar(p->key);
     free((void*)p);                // free node
   } while (my_itr_next(&itr));
@@ -66,15 +66,15 @@ int main(void) {
 #define inline __inline__
 #endif
 
-#define KAVL_MAX_DEPTH 64
+#define KAVLL_MAX_DEPTH 64
 
-#define KAVL_HEAD(__type) \
+#define KAVLL_HEAD(__type) \
 	struct { \
 		__type *p[2]; \
 		signed char balance; /* balance factor */ \
 	}
 
-#define __KAVL_FIND(pre, __scope, __type, __head,  __cmp) \
+#define __KAVLL_FIND(pre, __scope, __type, __head,  __cmp) \
 	__scope __type *pre##_find(const __type *root, const __type *x) { \
 		const __type *p = root; \
 		while (p != 0) { \
@@ -87,7 +87,7 @@ int main(void) {
 		return (__type*)p; \
 	}
 
-#define __KAVL_ROTATE(pre, __type, __head) \
+#define __KAVLL_ROTATE(pre, __type, __head) \
 	/* one rotation: (a,(b,c)q)p => ((a,b)p,c)q */ \
 	static inline __type *pre##_rotate1(__type *p, int dir) { /* dir=0 to left; dir=1 to right */ \
 		int opp = 1 - dir; /* opposite direction */ \
@@ -112,10 +112,10 @@ int main(void) {
 		return r; \
 	}
 
-#define __KAVL_INSERT(pre, __scope, __type, __head, __cmp) \
+#define __KAVLL_INSERT(pre, __scope, __type, __head, __cmp) \
 	__scope __type *pre##_insert(__type **root_, __type *x) { \
-		unsigned char stack[KAVL_MAX_DEPTH]; \
-		__type *path[KAVL_MAX_DEPTH]; \
+		unsigned char stack[KAVLL_MAX_DEPTH]; \
+		__type *path[KAVLL_MAX_DEPTH]; \
 		__type *bp, *bq; \
 		__type *p, *q, *r = 0; /* _r_ is potentially the new root */ \
 		int which = 0, top, b1, path_len; \
@@ -151,10 +151,10 @@ int main(void) {
 		return x; \
 	}
 
-#define __KAVL_ERASE(pre, __scope, __type, __head, __cmp) \
+#define __KAVLL_ERASE(pre, __scope, __type, __head, __cmp) \
 	__scope __type *pre##_erase(__type **root_, const __type *x) { \
-		__type *p, *path[KAVL_MAX_DEPTH], fake; \
-		unsigned char dir[KAVL_MAX_DEPTH]; \
+		__type *p, *path[KAVLL_MAX_DEPTH], fake; \
+		unsigned char dir[KAVLL_MAX_DEPTH]; \
 		int d = 0, cmp; \
 		fake.__head.p[0] = *root_, fake.__head.p[1] = 0; \
 		if (x) { \
@@ -222,7 +222,7 @@ int main(void) {
 		return p; \
 	}
 
-#define kavl_free(__type, __head, __root, __free) do { \
+#define kavll_free(__type, __head, __root, __free) do { \
 		__type *_p, *_q; \
 		for (_p = __root; _p; _p = _q) { \
 			if (_p->__head.p[0] == 0) { \
@@ -236,9 +236,9 @@ int main(void) {
 		} \
 	} while (0)
 
-#define __KAVL_ITR(pre, __scope, __type, __head, __cmp) \
+#define __KAVLL_ITR(pre, __scope, __type, __head, __cmp) \
 	typedef struct pre##_itr_t { \
-		const __type *stack[KAVL_MAX_DEPTH], **top, *right; /* _right_ points to the right child of *top */ \
+		const __type *stack[KAVLL_MAX_DEPTH], **top, *right; /* _right_ points to the right child of *top */ \
 	} pre##_itr_t; \
 	__scope void pre##_itr_first(const __type *root, struct pre##_itr_t *itr) { \
 		const __type *p; \
@@ -276,16 +276,16 @@ int main(void) {
 		} \
 	}
 
-#define kavl_at(itr) ((itr)->top < (itr)->stack? 0 : *(itr)->top)
+#define kavll_at(itr) ((itr)->top < (itr)->stack? 0 : *(itr)->top)
 
-#define KAVL_INIT2(pre, __scope, __type, __head, __cmp) \
-	__KAVL_FIND(pre, __scope, __type, __head,  __cmp) \
-	__KAVL_ROTATE(pre, __type, __head) \
-	__KAVL_INSERT(pre, __scope, __type, __head, __cmp) \
-	__KAVL_ERASE(pre, __scope, __type, __head, __cmp) \
-	__KAVL_ITR(pre, __scope, __type, __head, __cmp)
+#define KAVLL_INIT2(pre, __scope, __type, __head, __cmp) \
+	__KAVLL_FIND(pre, __scope, __type, __head,  __cmp) \
+	__KAVLL_ROTATE(pre, __type, __head) \
+	__KAVLL_INSERT(pre, __scope, __type, __head, __cmp) \
+	__KAVLL_ERASE(pre, __scope, __type, __head, __cmp) \
+	__KAVLL_ITR(pre, __scope, __type, __head, __cmp)
 
-#define KAVL_INIT(pre, __type, __head, __cmp) \
-	KAVL_INIT2(pre,, __type, __head, __cmp)
+#define KAVLL_INIT(pre, __type, __head, __cmp) \
+	KAVLL_INIT2(pre,, __type, __head, __cmp)
 
 #endif

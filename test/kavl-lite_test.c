@@ -8,11 +8,11 @@
 
 struct my_node {
 	int key;
-	KAVL_HEAD(struct my_node) head;
+	KAVLL_HEAD(struct my_node) head;
 };
 
 #define my_cmp(p, q) (((p)->key > (q)->key) - ((p)->key < (q)->key))
-KAVL_INIT(my, struct my_node, head, my_cmp)
+KAVLL_INIT(my, struct my_node, head, my_cmp)
 
 void shuffle(int n, char a[])
 {
@@ -51,7 +51,7 @@ int main(void)
 
 	my_itr_first(root, &itr);
 	do {
-		const struct my_node *r = kavl_at(&itr);
+		const struct my_node *r = kavll_at(&itr);
 		putchar(r->key);
 		free((void*)r);
 	} while (my_itr_next(&itr));
