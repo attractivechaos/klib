@@ -236,6 +236,21 @@ int main(void) {
 		} \
 	} while (0)
 
+#define kavll_size(__type, __head, __root, __cnt) do { \
+		__type *_p, *_q; \
+		*(__cnt) = 0; \
+		for (_p = __root; _p; _p = _q) { \
+			if (_p->__head.p[0] == 0) { \
+				_q = _p->__head.p[1]; \
+				++*(__cnt); \
+			} else { \
+				_q = _p->__head.p[0]; \
+				_p->__head.p[0] = _q->__head.p[1]; \
+				_q->__head.p[1] = _p; \
+			} \
+		} \
+	} while (0)
+
 #define __KAVLL_ITR(pre, __scope, __type, __head, __cmp) \
 	typedef struct pre##_itr_t { \
 		const __type *stack[KAVLL_MAX_DEPTH], **top, *right; /* _right_ points to the right child of *top */ \
