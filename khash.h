@@ -610,7 +610,7 @@ static kh_inline khint_t __ac_Wang_hash(khint_t key)
 
 typedef const char *kh_cstr_t;
 /*! @function
-  @abstract     Instantiate a hash map containing const char* keys
+  @abstract     Instantiate a hash set containing const char* keys
   @param  name  Name of the hash table [symbol]
  */
 #define KHASH_SET_INIT_STR(name)										\
