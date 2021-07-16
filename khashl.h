@@ -102,7 +102,7 @@ static kh_inline khint_t __kh_h2b(khint_t hash, khint_t bits) { return hash * 26
  *******************/
 
 #define __KHASHL_TYPE(HType, khkey_t) \
-	typedef struct { \
+	typedef struct HType { \
 		khint_t bits, count; \
 		khint32_t *used; \
 		khkey_t *keys; \
@@ -264,6 +264,7 @@ static kh_inline khint_t __kh_h2b(khint_t hash, khint_t bits) { return hash * 26
 	KHASHL_INIT(KH_LOCAL, HType, prefix##_s, HType##_s_bucket_t, prefix##_s_hash, prefix##_s_eq) \
 	SCOPE HType *prefix##_init(void) { return prefix##_s_init(); } \
 	SCOPE void prefix##_destroy(HType *h) { prefix##_s_destroy(h); } \
+	SCOPE void prefix##_resize(HType *h, khint_t new_n_buckets) { prefix##_s_resize(h, new_n_buckets); } \
 	SCOPE khint_t prefix##_get(const HType *h, khkey_t key) { HType##_s_bucket_t t; t.key = key; return prefix##_s_getp(h, &t); } \
 	SCOPE int prefix##_del(HType *h, khint_t k) { return prefix##_s_del(h, k); } \
 	SCOPE khint_t prefix##_put(HType *h, khkey_t key, int *absent) { HType##_s_bucket_t t; t.key = key; return prefix##_s_putp(h, &t, absent); }
@@ -310,6 +311,7 @@ static kh_inline khint_t __kh_h2b(khint_t hash, khint_t bits) { return hash * 26
 
 #define kh_key(h, x) ((h)->keys[x].key)
 #define kh_val(h, x) ((h)->keys[x].val)
+#define kh_exist(h, x) __kh_used((h)->used, (x))
 
 /**************************************
  * Common hash and equality functions *
