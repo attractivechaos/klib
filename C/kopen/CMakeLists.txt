@@ -1,0 +1,7 @@
+buildAndPackageLib("kopen"
+	COMPONENT "kopen"
+	DESCRIPTION "${PROJECT_DESCRIPTION}\n\nA library for smart stream, files and sockets opening."
+	CMAKE_EXPORT_NAMESPACE "${PROJECT_NAME}"
+	PUBLIC_INCLUDES "${CMAKE_CURRENT_LIST_DIR}"
+	INSTALL_INCLUDE_DIR "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}"
+)
