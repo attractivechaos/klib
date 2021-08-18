@@ -13,7 +13,7 @@
 #include "khash.h"
 KHASH_MAP_INIT_STR(str, int)
 
-inline void int2str(int c, int base, char *ret)
+void int2str(int c, int base, char *ret)
 {
 	const char *tab = "0123456789abcdef";
 	if (c == 0) ret[0] = '0', ret[1] = 0;
