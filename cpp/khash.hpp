@@ -32,7 +32,7 @@ class KHash {
 	uint32_t *flags;
 	T *keys;
 public:
-	KHash() : n_buckets(0), count(0), n_occupied(0), upper_bound(0), flags(NULL), keys(NULL) {};
+	KHash() : n_buckets(0), count(0), n_occupied(0), upper_bound(0), flags(nullptr), keys(nullptr) {};
 	~KHash() { std::free(flags); std::free(keys); };
 	khint_t capacity(void) const { return n_buckets; };
 	khint_t size(void) const { return count; };
