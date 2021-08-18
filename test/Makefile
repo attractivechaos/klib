@@ -62,10 +62,10 @@ kstring_bench2:kstring_bench2.c ../kstring.h ../kstring.c
 kstring_test:kstring_test.c ../kstring.h ../kstring.c
 		$(CC) $(CFLAGS) -o $@ kstring_test.c ../kstring.c
 
-kthread_test:kthread_test.c ../kthread.c
+kthread_test:kthread_test.c ../kthread.h ../kthread.c
 		$(CC) $(CFLAGS) -fopenmp -o $@ kthread_test.c ../kthread.c -lpthread
 
-kthread_test2:kthread_test2.c ../kthread.c
+kthread_test2:kthread_test2.c ../kthread.h ../kthread.c
 		$(CC) $(CFLAGS) -o $@ kthread_test2.c ../kthread.c -lpthread
 
 ketopt_test:ketopt_test.c ../ketopt.h

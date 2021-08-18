@@ -7,6 +7,8 @@
 #include <cilk/cilk_api.h>
 #endif
 
+#include "kthread.h"
+
 typedef struct {
 	int max_iter, w, h;
 	double xmin, xmax, ymin, ymax;
@@ -31,8 +33,6 @@ static void compute(void *_g, int i, int tid)
 	}
 	g->k[i] = k;
 }
-
-void kt_for(int n_threads, int n_items, void (*func)(void*,int,int), void *data);
 
 int main(int argc, char *argv[])
 {
