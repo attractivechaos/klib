@@ -3,105 +3,6 @@
 #include <math.h>
 #include "kmath.h"
 
-/**************************************
- *** Pseudo-random number generator ***
- **************************************/
-
-/* 
-   64-bit Mersenne Twister pseudorandom number generator. Adapted from:
-
-     http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/VERSIONS/C-LANG/mt19937-64.c
-
-   which was written by Takuji Nishimura and Makoto Matsumoto and released
-   under the 3-clause BSD license.
-*/
-
-#define KR_NN 312
-#define KR_MM 156
-#define KR_UM 0xFFFFFFFF80000000ULL /* Most significant 33 bits */
-#define KR_LM 0x7FFFFFFFULL /* Least significant 31 bits */
-
-struct _krand_t {
-	int mti, n_iset;
-	double n_gset;
-	krint64_t mt[KR_NN];
-};
-
-static void kr_srand0(krint64_t seed, krand_t *kr)
-{
-	kr->mt[0] = seed;
-	for (kr->mti = 1; kr->mti < KR_NN; ++kr->mti) 
-		kr->mt[kr->mti] = 6364136223846793005ULL * (kr->mt[kr->mti - 1] ^ (kr->mt[kr->mti - 1] >> 62)) + kr->mti;
-}
-
-krand_t *kr_srand(krint64_t seed)
-{
-	krand_t *kr;
-	kr = (krand_t*)calloc(1, sizeof(krand_t));
-	kr_srand0(seed, kr);
-	return kr;
-}
-
-krint64_t kr_rand(krand_t *kr)
-{
-	krint64_t x;
-	static const krint64_t mag01[2] = { 0, 0xB5026F5AA96619E9ULL };
-    if (kr->mti >= KR_NN) {
-		int i;
-		if (kr->mti == KR_NN + 1) kr_srand0(5489ULL, kr);
-        for (i = 0; i < KR_NN - KR_MM; ++i) {
-            x = (kr->mt[i] & KR_UM) | (kr->mt[i+1] & KR_LM);
-            kr->mt[i] = kr->mt[i + KR_MM] ^ (x>>1) ^ mag01[(int)(x&1)];
-        }
-        for (; i < KR_NN - 1; ++i) {
-            x = (kr->mt[i] & KR_UM) | (kr->mt[i+1] & KR_LM);
-            kr->mt[i] = kr->mt[i + (KR_MM - KR_NN)] ^ (x>>1) ^ mag01[(int)(x&1)];
-        }
-        x = (kr->mt[KR_NN - 1] & KR_UM) | (kr->mt[0] & KR_LM);
-        kr->mt[KR_NN - 1] = kr->mt[KR_MM - 1] ^ (x>>1) ^ mag01[(int)(x&1)];
-        kr->mti = 0;
-    }
-    x = kr->mt[kr->mti++];
-    x ^= (x >> 29) & 0x5555555555555555ULL;
-    x ^= (x << 17) & 0x71D67FFFEDA60000ULL;
-    x ^= (x << 37) & 0xFFF7EEE000000000ULL;
-    x ^= (x >> 43);
-    return x;
-}
-
-double kr_normal(krand_t *kr)
-{ 
-	if (kr->n_iset == 0) {
-		double fac, rsq, v1, v2; 
-		do { 
-			v1 = 2.0 * kr_drand(kr) - 1.0;
-			v2 = 2.0 * kr_drand(kr) - 1.0; 
-			rsq = v1 * v1 + v2 * v2;
-		} while (rsq >= 1.0 || rsq == 0.0);
-		fac = sqrt(-2.0 * log(rsq) / rsq); 
-		kr->n_gset = v1 * fac; 
-		kr->n_iset = 1;
-		return v2 * fac;
-	} else {
-		kr->n_iset = 0;
-		return kr->n_gset;
-	}
-}
-
-#ifdef _KR_MAIN
-int main(int argc, char *argv[])
-{
-	long i, N = 200000000;
-	krand_t *kr;
-	if (argc > 1) N = atol(argv[1]);
-	kr = kr_srand(11);
-	for (i = 0; i < N; ++i) kr_rand(kr);
-//	for (i = 0; i < N; ++i) lrand48();
-	free(kr);
-	return 0;
-}
-#endif
-
 /******************************
  *** Non-linear programming ***
  ******************************/
@@ -284,6 +185,76 @@ double kmin_brent(kmin1_f func, double a, double b, void *data, double tol, doub
 	}
 	*xmin = b;
 	return fb;
+}
+
+static inline float SIGN(float a, float b)
+{
+	return b >= 0 ? (a >= 0 ? a : -a) : (a >= 0 ? -a : a);
+}
+
+double krf_brent(double x1, double x2, double tol, double (*func)(double, void*), void *data, int *err)
+{
+	const int max_iter = 100;
+	const double eps = 3e-8f;
+	int i;
+	double a = x1, b = x2, c = x2, d, e, min1, min2;
+	double fa, fb, fc, p, q, r, s, tol1, xm;
+
+	*err = 0;
+	fa = func(a, data), fb = func(b, data);
+	if ((fa > 0.0f && fb > 0.0f) || (fa < 0.0f && fb < 0.0f)) {
+		*err = -1;
+		return 0.0f;
+	}
+	fc = fb;
+	for (i = 0; i < max_iter; ++i) {
+		if ((fb > 0.0f && fc > 0.0f) || (fb < 0.0f && fc < 0.0f)) {
+			c = a;
+			fc = fa;
+			e = d = b - a;
+		}
+		if (fabs(fc) < fabs(fb)) {
+			a = b, b = c, c = a;
+			fa = fb, fb = fc, fc = fa;
+		}
+		tol1 = 2.0f * eps * fabs(b) + 0.5f * tol;
+		xm = 0.5f * (c - b);
+		if (fabs(xm) <= tol1 || fb == 0.0f)
+			return b;
+		if (fabs(e) >= tol1 && fabs(fa) > fabs(fb)) {
+			s = fb / fa;
+			if (a == c) {
+				p = 2.0f * xm * s;
+				q = 1.0f - s;
+			} else {
+				q = fa / fc;
+				r = fb / fc;
+				p = s * (2.0f * xm * q * (q - r) - (b - a) * (r - 1.0f));
+				q = (q - 1.0f) * (r - 1.0f) * (s - 1.0f);
+			}
+			if (p > 0.0f) q = -q;
+			p = fabs(p);
+			min1 = 3.0f * xm * q - fabs(tol1 * q);
+			min2 = fabs(e * q);
+			if (2.0f * p < (min1 < min2 ? min1 : min2)) {
+				e = d;
+				d = p / q;
+			} else {
+				d = xm;
+				e = d;
+			}
+		} else {
+			d = xm;
+			e = d;
+		}
+		a = b;
+		fa = fb;
+		if (fabs(d) > tol1) b += d;
+		else b += SIGN(tol1, xm);
+		fb = func(b, data);
+	}
+	*err = -2;
+	return 0.0;
 }
 
 /*************************
