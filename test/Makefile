@@ -4,12 +4,18 @@ CFLAGS=-g -Wall -O2 -I..
 CXXFLAGS=$(CFLAGS)
 PROGS=kbtree_test khash_keith khash_keith2 khash_test klist_test kseq_test kseq_bench \
 		kseq_bench2 ksort_test ksort_test-stl kvec_test kmin_test kstring_bench kstring_bench2 kstring_test \
-		kthread_test2
+		kavl_test kavl-lite_test kthread_test2
 
 all:$(PROGS)
 
 clean:
 		rm -fr $(PROGS) *.dSYM a.out *.o
+
+kavl_test:kavl_test.c ../kavl.h
+		$(CC) $(CFLAGS) -o $@ kavl_test.c
+
+kavl-lite_test:kavl-lite_test.c ../kavl-lite.h
+		$(CC) $(CFLAGS) -o $@ kavl-lite_test.c
 
 kbtree_test:kbtree_test.c ../kbtree.h
 		$(CC) $(CFLAGS) -o $@ kbtree_test.c
