@@ -15,7 +15,7 @@ typedef struct {
 	int *k;
 } global_t;
 
-static void compute(void *_g, int i, int tid)
+static void compute(void *_g, long i, int tid)
 {
 	global_t *g = (global_t*)_g;
 	double x, x0 = g->xmin + (g->xmax - g->xmin) * (i%g->w) / g->w;
@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
 	global.k = calloc(tot, sizeof(int));
 	for (i = 0; i < tot; ++i) global.k[i] = -1;
 	if (type == 0) {
-		kt_for(n_threads, tot, compute, &global);
+		kt_for(n_threads, compute, &global, tot);
 	} else if (type == 2) {
 		#pragma omp parallel for
 		for (i = 0; i < tot; ++i)
