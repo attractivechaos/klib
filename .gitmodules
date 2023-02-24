@@ -1,0 +1,17 @@
+[submodule "cmake/thirdParty/Boilerplate"]
+	path = cmake/thirdParty/Boilerplate
+	url = https://github.com/KOLANICH-libs/Boilerplate.cmake
+	branch = master
+	shallow = true
+
+[submodule "cmake/thirdParty/DoxygenUtils"]
+	path = cmake/thirdParty/DoxygenUtils
+	url = https://github.com/KOLANICH-libs/DoxygenUtils.cmake
+	branch = master
+	shallow = true
+
+[submodule "cmake/thirdParty/DetectDependentHeaders"]
+	path = cmake/thirdParty/DetectDependentHeaders
+	url = https://github.com/KOLANICH-libs/DetectDependentHeaders.cmake
+	branch = master
+	shallow = true

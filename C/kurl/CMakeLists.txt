@@ -1,0 +1,14 @@
+find_package(CURL)
+
+if(CURL_FOUND)
+	set(CPACK_DEBIAN_KURL_PACKAGE_SHLIBDEPS ON)
+	buildAndPackageLib("kurl"
+		COMPONENT "kurl"
+		DESCRIPTION "${PROJECT_DESCRIPTION}\n\nSomething like knetfile, but implemented above cURL."
+		CMAKE_EXPORT_NAMESPACE "${PROJECT_NAME}"
+		PUBLIC_INCLUDES "${CMAKE_CURRENT_LIST_DIR}"
+		INSTALL_INCLUDE_DIR "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}"
+		PRIVATE_LIBS "CURL::libcurl"
+		#PKG_CONFIG_REQUIRES "libcurl"
+	)
+endif()

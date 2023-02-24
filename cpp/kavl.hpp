@@ -65,10 +65,10 @@ class Avl {
 		}
 	};
 public:
-	Avl() : root(NULL) {};
+	Avl() : root(nullptr) {};
 	~Avl() { destroy(root); };
 	unsigned size() const { return root? root->size : 0; }
-	T *find(const T &data, unsigned *cnt_ = NULL) {
+	T *find(const T &data, unsigned *cnt_ = nullptr) {
 		Node *p = root;
 		unsigned cnt = 0;
 		while (p != 0) {
@@ -79,9 +79,9 @@ public:
 			else break;
 		}
 		if (cnt_) *cnt_ = cnt;
-		return p? &p->data : NULL;
+		return p? &p->data : nullptr;
 	};
-	T *insert(const T &data, bool *is_new = NULL, unsigned *cnt_ = NULL) {
+	T *insert(const T &data, bool *is_new = nullptr, unsigned *cnt_ = nullptr) {
 		unsigned char stack[MAX_DEPTH];
 		Node *path[MAX_DEPTH];
 		Node *bp, *bq;

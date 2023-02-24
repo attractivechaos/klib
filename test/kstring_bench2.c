@@ -1,3 +1,8 @@
+#ifdef __linux__
+#define HAVE_MEMMEM
+#define _GNU_SOURCE
+#endif
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,10 +11,6 @@
 
 #ifdef __APPLE__
 #define HAVE_STRNSTR
-#endif
-
-#ifdef __linux__
-#define HAVE_MEMMEM
 #endif
 
 static int str_len = 1024*1024*128;

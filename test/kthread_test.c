@@ -7,13 +7,15 @@
 #include <cilk/cilk_api.h>
 #endif
 
+#include "kthread.h"
+
 typedef struct {
 	int max_iter, w, h;
 	double xmin, xmax, ymin, ymax;
 	int *k;
 } global_t;
 
-static void compute(void *_g, int i, int tid)
+static void compute(void *_g, long i, int tid)
 {
 	global_t *g = (global_t*)_g;
 	double x, x0 = g->xmin + (g->xmax - g->xmin) * (i%g->w) / g->w;
@@ -32,8 +34,6 @@ static void compute(void *_g, int i, int tid)
 	g->k[i] = k;
 }
 
-void kt_for(int n_threads, int n_items, void (*func)(void*,int,int), void *data);
-
 int main(int argc, char *argv[])
 {
 	int i, tmp, tot, type = 0, n_threads = 2;
@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
 	global.k = calloc(tot, sizeof(int));
 	for (i = 0; i < tot; ++i) global.k[i] = -1;
 	if (type == 0) {
-		kt_for(n_threads, tot, compute, &global);
+		kt_for(n_threads, compute, &global, tot);
 	} else if (type == 2) {
 		#pragma omp parallel for
 		for (i = 0; i < tot; ++i)

@@ -12,6 +12,9 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #endif
+#ifdef _POSIX_VERSION
+#include <sys/wait.h>
+#endif
 
 #ifdef _WIN32
 #define _KO_NO_NET
