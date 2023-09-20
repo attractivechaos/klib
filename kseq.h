@@ -107,7 +107,7 @@ typedef struct __kstring_t {
 					if (ks->end == -1) { ks->is_eof = 1; return -3; }	\
 				} else break;											\
 			}															\
-			if (delimiter == KS_SEP_LINE) { \
+			if (delimiter == KS_SEP_LINE) {								\
 				unsigned char *sep = memchr(ks->buf + ks->begin, '\n', ks->end - ks->begin); \
 				i = sep != NULL ? sep - ks->buf : ks->end;				\
 			} else if (delimiter > KS_SEP_MAX) {						\
