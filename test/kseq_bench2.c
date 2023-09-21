@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include "kseq.h"
 KSTREAM_INIT(int, read, 4096)
 
