@@ -81,7 +81,7 @@ void ht_khash_str()
 		k = kh_put(str, h, data[i], &ret);
 		if (!ret) kh_del(str, h, k);
 	}
-	printf("[ht_khash_int] size: %u\n", kh_size(h));
+	printf("[ht_khash_str] size: %u\n", kh_size(h));
 	kh_destroy(str, h);
 }
 
