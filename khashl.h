@@ -342,9 +342,21 @@ static kh_inline khint_t kh_hash_uint64(khint64_t key) {
 	return (khint_t)key;
 }
 
-static kh_inline khint_t kh_hash_str(const char *s) {
-	khint_t h = (khint_t)*s;
-	if (h) for (++s ; *s; ++s) h = (h << 5) - h + (khint_t)*s;
+#define KH_FNV_SEED 11
+
+static kh_inline khint_t kh_hash_str(const char *s) { /* FNV1a */
+	khint_t h = KH_FNV_SEED ^ 2166136261U;
+	const unsigned char *t = (const unsigned char*)s;
+	for (; *t; ++t)
+		h ^= *t, h *= 16777619;
+	return h;
+}
+
+static kh_inline khint_t kh_hash_bytes(int len, const unsigned char *s) {
+	khint_t h = KH_FNV_SEED ^ 2166136261U;
+	int i;
+	for (i = 0; i < len; ++i)
+		h ^= s[i], h *= 16777619;
 	return h;
 }
 
