@@ -12,7 +12,7 @@ int kvsprintf(kstring_t *s, const char *fmt, va_list ap)
 	va_copy(args, ap);
 	l = vsnprintf(s->s + s->l, s->m - s->l, fmt, args); // This line does not work with glibc 2.0. See `man snprintf'.
 	va_end(args);
-	if (l + 1 > s->m - s->l) {
+	if ((unsigned)(l + 1) > s->m - s->l) {
 		s->m = s->l + l + 2;
 		kroundup32(s->m);
 		s->s = (char*)realloc(s->s, s->m);
