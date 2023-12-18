@@ -17,7 +17,7 @@ typedef struct {
 } ketopt_t;
 
 typedef struct {
-	char *name;
+	char const *name;
 	int has_arg;
 	int val;
 } ko_longopt_t;
