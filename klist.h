@@ -42,7 +42,7 @@
 		kmptype_t **buf;												\
 	} kmp_##name##_t;													\
 	SCOPE kmp_##name##_t *kmp_init_##name(void) {						\
-		return calloc(1, sizeof(kmp_##name##_t));						\
+		return (kmp_##name##_t *)calloc(1, sizeof(kmp_##name##_t));		\
 	}																	\
 	SCOPE void kmp_destroy_##name(kmp_##name##_t *mp) {					\
 		size_t k;														\
@@ -53,14 +53,16 @@
 	}																	\
 	SCOPE kmptype_t *kmp_alloc_##name(kmp_##name##_t *mp) {				\
 		++mp->cnt;														\
-		if (mp->n == 0) return calloc(1, sizeof(kmptype_t));			\
+		if (mp->n == 0) return (kmptype_t*)calloc(1,sizeof(kmptype_t));	\
 		return mp->buf[--mp->n];										\
 	}																	\
 	SCOPE void kmp_free_##name(kmp_##name##_t *mp, kmptype_t *p) {		\
 		--mp->cnt;														\
 		if (mp->n == mp->max) {											\
-			mp->max = mp->max? mp->max<<1 : 16;							\
-			mp->buf = realloc(mp->buf, sizeof(kmptype_t *) * mp->max);	\
+			size_t new_max = mp->max ? mp->max<<1 : 16;					\
+			void* nb = realloc(mp->buf, sizeof(kmptype_t *) * new_max);	\
+			if (!nb) { kmpfree_f(p); free(p); return; }					\
+			mp->max = new_max; mp->buf = (kmptype_t **)nb;				\
 		}																\
 		mp->buf[mp->n++] = p;											\
 	}
@@ -87,22 +89,28 @@
 		size_t size;													\
 	} kl_##name##_t;													\
 	SCOPE kl_##name##_t *kl_init_##name(void) {							\
-		kl_##name##_t *kl = calloc(1, sizeof(kl_##name##_t));			\
+		kl_##name##_t *kl = (kl_##name##_t *)calloc(1, sizeof(kl_##name##_t)); \
+		if (!kl) return 0;												\
 		kl->mp = kmp_init(name);										\
+		if (!kl->mp) { free(kl); return 0; }							\
 		kl->head = kl->tail = kmp_alloc(name, kl->mp);					\
+		if (!kl->head) { free(kl->mp); free(kl); return 0; }			\
 		kl->head->next = 0;												\
 		return kl;														\
 	}																	\
 	SCOPE void kl_destroy_##name(kl_##name##_t *kl) {					\
-		kl1_##name *p;													\
-		for (p = kl->head; p != kl->tail; p = p->next)					\
+		kl1_##name *p, *next_p;											\
+		for (p = kl->head; p != kl->tail; p = next_p){					\
+			next_p = p->next;											\
 			kmp_free(name, kl->mp, p);									\
+		}																\
 		kmp_free(name, kl->mp, p);										\
 		kmp_destroy(name, kl->mp);										\
 		free(kl);														\
 	}																	\
 	SCOPE kltype_t *kl_pushp_##name(kl_##name##_t *kl) {				\
 		kl1_##name *q, *p = kmp_alloc(name, kl->mp);					\
+		if (!p) return 0;												\
 		q = kl->tail; p->next = 0; kl->tail->next = p; kl->tail = p;	\
 		++kl->size;														\
 		return &q->data;												\
@@ -115,6 +123,34 @@
 		if (d) *d = p->data;											\
 		kmp_free(name, kl->mp, p);										\
 		return 0;														\
+	}																	\
+	SCOPE kltype_t *kl_unshiftp_##name(kl_##name##_t *kl) {				\
+		kl1_##name *q, *p = kmp_alloc(name, kl->mp);					\
+		if (!p) return 0;												\
+		q = kl->head; p->next = q; kl->head = p;						\
+		++kl->size;														\
+		return &p->data;												\
+	}																	\
+    SCOPE int kl_delete_after_##name(kl_##name##_t *kl,					\
+                                                kl1_##name *c,			\
+												kltype_t *d) {			\
+		kl1_##name *p;													\
+		if (c->next == 0) return -1;									\
+		if (c->next->next == 0) return -1;								\
+		--kl->size;														\
+		p = c->next; c->next = c->next->next;							\
+		if (d) *d = p->data;											\
+		kmp_free(name, kl->mp, p);										\
+		return 0;														\
+	}																	\
+	SCOPE kltype_t *kl_insertp_after_##name(kl_##name##_t *kl,			\
+													kl1_##name *c) {	\
+		if (c->next == 0) return 0;										\
+		kl1_##name *p = kmp_alloc(name, kl->mp);						\
+		if (!p) return 0;												\
+		p->next = c->next; c->next = p;									\
+		++kl->size;														\
+		return &p->data;												\
 	}
 
 #define KLIST_INIT(name, kltype_t, kmpfree_t)							\
@@ -126,10 +162,15 @@
 #define kl_next(iter) ((iter)->next)
 #define kl_begin(kl) ((kl)->head)
 #define kl_end(kl) ((kl)->tail)
+#define kl_length(kl) ((kl)->size)
 
 #define kl_init(name) kl_init_##name()
 #define kl_destroy(name, kl) kl_destroy_##name(kl)
 #define kl_pushp(name, kl) kl_pushp_##name(kl)
 #define kl_shift(name, kl, d) kl_shift_##name(kl, d)
+#define kl_unshiftp(name, kl) kl_unshiftp_##name(kl)
+
+#define kl_delete_after(name, kl, iter, d) kl_delete_after_##name(kl, iter, d)
+#define kl_insertp_after(name, kl, iter) kl_insertp_after_##name(kl, iter)
 
 #endif
