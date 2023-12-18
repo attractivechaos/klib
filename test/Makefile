@@ -51,7 +51,7 @@ kvec_test:kvec_test.cc ../kvec.h
 		$(CXX) $(CXXFLAGS) -o $@ kvec_test.cc
 
 kmin_test:kmin_test.c ../kmath.h ../kmath.c
-		$(CC) $(CFLAGS) -o $@ kmin_test.c ../kmath.c
+		$(CC) $(CFLAGS) -o $@ kmin_test.c ../kmath.c -lm
 
 kstring_bench:kstring_bench.c ../kstring.h ../kstring.c
 		$(CC) $(CFLAGS) -o $@ kstring_bench.c ../kstring.c
@@ -66,7 +66,7 @@ kthread_test:kthread_test.c ../kthread.c
 		$(CC) $(CFLAGS) -fopenmp -o $@ kthread_test.c ../kthread.c
 
 kthread_test2:kthread_test2.c ../kthread.c
-		$(CC) $(CFLAGS) -o $@ kthread_test2.c ../kthread.c
+		$(CC) $(CFLAGS) -o $@ kthread_test2.c ../kthread.c -lpthread
 
 ketopt_test:ketopt_test.c ../ketopt.h
 		$(CC) $(CFLAGS) -o $@ ketopt_test.c
