@@ -188,6 +188,7 @@ public:
 		bucket_t t = { key, VType() };
 		return value(hashset_t::put(t));
 	}
+        inline khint_t size() const { return hashset_t::size(); }
 };
 
 /****************************
@@ -220,6 +221,7 @@ public:
 		return hashset_t::put(t, absent);
 	}
 	inline KType &key(khint_t i) { return hashset_t::key(i).key; }
+        inline khint_t size() const { return hashset_t::size(); }
 };
 
 /****************************
@@ -251,6 +253,7 @@ public:
 		bucket_t t = { key, VType(), Hash()(key) };
 		return value(hashset_t::put(t));
 	}
+        inline khint_t size() const { return hashset_t::size(); }
 };
 
 }
