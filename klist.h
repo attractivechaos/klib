@@ -77,6 +77,7 @@
 #define KLIST_INIT2(SCOPE, name, kltype_t, kmpfree_t)					\
 	struct __kl1_##name {												\
 		kltype_t data;													\
+		struct __kl1_##name *prev;										\
 		struct __kl1_##name *next;										\
 	};																	\
 	typedef struct __kl1_##name kl1_##name;								\
@@ -90,7 +91,7 @@
 		kl_##name##_t *kl = calloc(1, sizeof(kl_##name##_t));			\
 		kl->mp = kmp_init(name);										\
 		kl->head = kl->tail = kmp_alloc(name, kl->mp);					\
-		kl->head->next = 0;												\
+		kl->head->prev = kl->head->next = 0;							\
 		return kl;														\
 	}																	\
 	SCOPE void kl_destroy_##name(kl_##name##_t *kl) {					\
@@ -103,7 +104,10 @@
 	}																	\
 	SCOPE kltype_t *kl_pushp_##name(kl_##name##_t *kl) {				\
 		kl1_##name *q, *p = kmp_alloc(name, kl->mp);					\
-		q = kl->tail; p->next = 0; kl->tail->next = p; kl->tail = p;	\
+		q = kl->tail;													\
+		kl->tail = p;													\
+		q->next = p;													\
+		p->prev = q; p->next = 0;										\
 		++kl->size;														\
 		return &q->data;												\
 	}																	\
@@ -112,10 +116,28 @@
 		if (kl->head->next == 0) return -1;								\
 		--kl->size;														\
 		p = kl->head; kl->head = kl->head->next;						\
+		kl->head->prev = 0;												\
 		if (d) *d = p->data;											\
 		kmp_free(name, kl->mp, p);										\
 		return 0;														\
+	}																	\
+	SCOPE kl1_##name *kl_remove_##name(kl_##name##_t *kl, kl1_##name *p) {	\
+		kl1_##name *q = p->next;										\
+		if (p == kl->head) {											\
+			kl->head = p->next;											\
+			kl->head->prev = 0;											\
+		} else if (p == kl->tail) {										\
+			kl->tail = p->prev;											\
+			kl->tail->next = 0;											\
+		} else {														\
+			p->prev->next = p->next;									\
+			p->next->prev = p->prev;									\
+		}																\
+		kmp_free(name, kl->mp, p);										\
+		--kl->size;														\
+		return q;														\
 	}
+
 
 #define KLIST_INIT(name, kltype_t, kmpfree_t)							\
 	KLIST_INIT2(static inline klib_unused, name, kltype_t, kmpfree_t)
@@ -131,5 +153,6 @@
 #define kl_destroy(name, kl) kl_destroy_##name(kl)
 #define kl_pushp(name, kl) kl_pushp_##name(kl)
 #define kl_shift(name, kl, d) kl_shift_##name(kl, d)
+#define kl_remove(name, kl, p) kl_remove_##name(kl, p)
 
 #endif
