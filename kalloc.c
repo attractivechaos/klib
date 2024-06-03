@@ -18,15 +18,14 @@
  *       |                           |                 |                               |
  *       p=p->ptr->ptr->ptr->ptr     p->ptr            p->ptr->ptr                     p->ptr->ptr->ptr
  */
-
-#define MIN_CORE_SIZE 0x80000
-
 typedef struct header_t {
 	size_t size;
 	struct header_t *ptr;
 } header_t;
 
 typedef struct {
+	void *par;
+	size_t min_core_size;
 	header_t base, *loop_head, *core_head; /* base is a zero-sized block always kept in the loop */
 } kmem_t;
 
@@ -36,31 +35,40 @@ static void panic(const char *s)
 	abort();
 }
 
-void *km_init(void)
+void *km_init2(void *km_par, size_t min_core_size)
 {
-	return calloc(1, sizeof(kmem_t));
+	kmem_t *km;
+	km = (kmem_t*)kcalloc(km_par, 1, sizeof(kmem_t));
+	km->par = km_par;
+	if (km_par) km->min_core_size = min_core_size > 0? min_core_size : ((kmem_t*)km_par)->min_core_size - 2;
+	else km->min_core_size = min_core_size > 0? min_core_size : 0x80000;
+	return (void*)km;
 }
+
+void *km_init(void) { return km_init2(0, 0); }
 
 void km_destroy(void *_km)
 {
 	kmem_t *km = (kmem_t*)_km;
+	void *km_par;
 	header_t *p, *q;
 	if (km == NULL) return;
+	km_par = km->par;
 	for (p = km->core_head; p != NULL;) {
 		q = p->ptr;
-		free(p);
+		kfree(km_par, p);
 		p = q;
 	}
-	free(km);
+	kfree(km_par, km);
 }
 
 static header_t *morecore(kmem_t *km, size_t nu)
 {
 	header_t *q;
 	size_t bytes, *p;
-	nu = (nu + 1 + (MIN_CORE_SIZE - 1)) / MIN_CORE_SIZE * MIN_CORE_SIZE; /* the first +1 for core header */
+	nu = (nu + 1 + (km->min_core_size - 1)) / km->min_core_size * km->min_core_size; /* the first +1 for core header */
 	bytes = nu * sizeof(header_t);
-	q = (header_t*)malloc(bytes);
+	q = (header_t*)kmalloc(km->par, bytes);
 	if (!q) panic("[morecore] insufficient memory");
 	q->ptr = km->core_head, q->size = nu, km->core_head = q;
 	p = (size_t*)(q + 1);
@@ -125,7 +133,7 @@ void *kmalloc(void *_km, size_t n_bytes)
 
 	if (n_bytes == 0) return 0;
 	if (km == NULL) return malloc(n_bytes);
-	n_units = (n_bytes + sizeof(size_t) + sizeof(header_t) - 1) / sizeof(header_t) + 1;
+	n_units = (n_bytes + sizeof(size_t) + sizeof(header_t) - 1) / sizeof(header_t); /* header+n_bytes requires at least this number of units */
 
 	if (!(q = km->loop_head)) /* the first time when kmalloc() is called, intialize it */
 		q = km->loop_head = km->base.ptr = &km->base;
@@ -160,20 +168,30 @@ void *kcalloc(void *_km, size_t count, size_t size)
 void *krealloc(void *_km, void *ap, size_t n_bytes) // TODO: this can be made more efficient in principle
 {
 	kmem_t *km = (kmem_t*)_km;
-	size_t n_units, *p, *q;
+	size_t cap, *p, *q;
 
 	if (n_bytes == 0) {
 		kfree(km, ap); return 0;
 	}
 	if (km == NULL) return realloc(ap, n_bytes);
 	if (ap == NULL) return kmalloc(km, n_bytes);
-	n_units = (n_bytes + sizeof(size_t) + sizeof(header_t) - 1) / sizeof(header_t);
 	p = (size_t*)ap - 1;
-	if (*p >= n_units) return ap; /* TODO: this prevents shrinking */
+	cap = (*p) * sizeof(header_t) - sizeof(size_t);
+	if (cap >= n_bytes) return ap; /* TODO: this prevents shrinking */
 	q = (size_t*)kmalloc(km, n_bytes);
-	memcpy(q, ap, (*p - 1) * sizeof(header_t));
+	memcpy(q, ap, cap);
 	kfree(km, ap);
 	return q;
+}
+
+void *krelocate(void *km, void *ap, size_t n_bytes)
+{
+	void *p;
+	if (km == 0 || ap == 0) return ap;
+	p = kmalloc(km, n_bytes);
+	memcpy(p, ap, n_bytes);
+	kfree(km, ap);
+	return p;
 }
 
 void km_stat(const void *_km, km_stat_t *s)
@@ -195,4 +213,12 @@ void km_stat(const void *_km, km_stat_t *s)
 		s->capacity += size;
 		s->largest = s->largest > size? s->largest : size;
 	}
+}
+
+void km_stat_print(const void *km)
+{
+	km_stat_t st;
+	km_stat(km, &st);
+	fprintf(stderr, "[km_stat] cap=%ld, avail=%ld, largest=%ld, n_core=%ld, n_block=%ld\n",
+			st.capacity, st.available, st.largest, st.n_blocks, st.n_cores);
 }
