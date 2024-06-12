@@ -54,7 +54,7 @@ int main()
 	for (i = 0; i < M; ++i) {
 		std::vector<int> array;
 		array.reserve(N);
-		for (j = 0; j < N; ++j) array[j] = j;
+		for (j = 0; j < N; ++j) array.push_back(j);
 	}
 	printf("C++ vector, preallocated: %.3f sec\n",
 		   (float)(clock() - t) / CLOCKS_PER_SEC);
