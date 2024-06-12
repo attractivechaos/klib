@@ -212,11 +212,16 @@ static const double __ac_HASH_UPPER = 0.77;
 	SCOPE kh_##name##_t *kh_init_##name(void) {							\
 		return (kh_##name##_t*)kcalloc(1, sizeof(kh_##name##_t));		\
 	}																	\
+	SCOPE void kh_release_##name(kh_##name##_t *h)						\
+	{																	\
+		kfree(h->flags);												\
+		kfree((void *)h->keys);											\
+		kfree((void *)h->vals);											\
+	}																	\
 	SCOPE void kh_destroy_##name(kh_##name##_t *h)						\
 	{																	\
 		if (h) {														\
-			kfree((void *)h->keys); kfree(h->flags);					\
-			kfree((void *)h->vals);										\
+			kh_release_##name(h);										\
 			kfree(h);													\
 		}																\
 	}																	\
@@ -444,6 +449,13 @@ static kh_inline khint_t __ac_Wang_hash(khint_t key)
   @param  h     Pointer to the hash table [khash_t(name)*]
  */
 #define kh_destroy(name, h) kh_destroy_##name(h)
+
+/*! @function
+  @abstract     Free the memory of a hash table, keep the [khash_t(name)*].
+  @param  name  Name of the hash table [symbol]
+  @param  h     Pointer to the hash table [khash_t(name)*]
+ */
+#define kh_release(name, h) kh_release_##name(h)
 
 /*! @function
   @abstract     Reset a hash table without deallocating memory.
