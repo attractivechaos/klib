@@ -53,7 +53,7 @@ int main()
 	t = clock();
 	for (i = 0; i < M; ++i) {
 		std::vector<int> array;
-		array.reserve(N);
+		array.resize(N);
 		for (j = 0; j < N; ++j) array[j] = j;
 	}
 	printf("C++ vector, preallocated: %.3f sec\n",
