@@ -407,7 +407,16 @@ static kh_inline khint_t __ac_X31_hash_string(const char *s)
 /*! @function
   @abstract     Const char* comparison function
  */
-#define kh_str_hash_equal(a, b) (strcmp(a, b) == 0)
+
+// speedup for string hashes
+static kh_inline int __ac_inline_strcmp(const char* s1, const char* s2) {
+  for ( ; *s1 == *s2; s1++, s2++)
+    if (*s1 == '\0')
+      return 0;
+  return -1;
+}
+
+#define kh_str_hash_equal(a, b) (__ac_inline_strcmp(a, b) == 0)
 
 static kh_inline khint_t __ac_Wang_hash(khint_t key)
 {
