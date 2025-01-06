@@ -553,11 +553,11 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 	ke = ke_parse(argv[optind], &err);
-	ke_set_default_func(ke);
 	if (err) {
 		fprintf(stderr, "Parse error: 0x%x\n", err);
 		return 1;
 	}
+	ke_set_default_func(ke);
 	if (!to_print) {
 		int64_t vi;
 		double vr;
