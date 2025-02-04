@@ -92,6 +92,19 @@ int main(void) {
 		} \
 		if (cnt_) *cnt_ = cnt; \
 		return (__type*)p; \
+	} \
+	__scope __type *kavl_interval_##suf(const __type *root, const __type *x, __type **lower, __type **upper) { \
+		const __type *p = root, *l = 0, *u = 0; \
+		while (p != 0) { \
+			int cmp; \
+			cmp = __cmp(x, p); \
+			if (cmp < 0) u = p, p = p->__head.p[0]; \
+			else if (cmp > 0) l = p, p = p->__head.p[1]; \
+			else { l = u = p; break; } \
+		} \
+		if (lower) *lower = (__type*)l; \
+		if (upper) *upper = (__type*)u; \
+		return (__type*)p; \
 	}
 
 #define __KAVL_ROTATE(suf, __type, __head) \
@@ -271,43 +284,42 @@ int main(void) {
 
 #define __KAVL_ITR(suf, __scope, __type, __head, __cmp) \
 	struct kavl_itr_##suf { \
-		const __type *stack[KAVL_MAX_DEPTH], **top, *right; /* _right_ points to the right child of *top */ \
+		const __type *stack[KAVL_MAX_DEPTH], **top; \
 	}; \
 	__scope void kavl_itr_first_##suf(const __type *root, struct kavl_itr_##suf *itr) { \
 		const __type *p; \
 		for (itr->top = itr->stack - 1, p = root; p; p = p->__head.p[0]) \
 			*++itr->top = p; \
-		itr->right = (*itr->top)->__head.p[1]; \
 	} \
 	__scope int kavl_itr_find_##suf(const __type *root, const __type *x, struct kavl_itr_##suf *itr) { \
 		const __type *p = root; \
 		itr->top = itr->stack - 1; \
 		while (p != 0) { \
 			int cmp; \
+			*++itr->top = p; \
 			cmp = __cmp(x, p); \
-			if (cmp < 0) *++itr->top = p, p = p->__head.p[0]; \
+			if (cmp < 0) p = p->__head.p[0]; \
 			else if (cmp > 0) p = p->__head.p[1]; \
 			else break; \
 		} \
-		if (p) { \
-			*++itr->top = p; \
-			itr->right = p->__head.p[1]; \
-			return 1; \
-		} else if (itr->top >= itr->stack) { \
-			itr->right = (*itr->top)->__head.p[1]; \
-			return 0; \
-		} else return 0; \
+		return p? 1 : 0; \
 	} \
-	__scope int kavl_itr_next_##suf(struct kavl_itr_##suf *itr) { \
-		for (;;) { \
-			const __type *p; \
-			for (p = itr->right, --itr->top; p; p = p->__head.p[0]) \
+	__scope int kavl_itr_next_bidir_##suf(struct kavl_itr_##suf *itr, int dir) { \
+		const __type *p; \
+		if (itr->top < itr->stack) return 0; \
+		dir = !!dir; \
+		p = (*itr->top)->__head.p[dir]; \
+		if (p) { /* go down */ \
+			for (; p; p = p->__head.p[!dir]) \
 				*++itr->top = p; \
-			if (itr->top < itr->stack) return 0; \
-			itr->right = (*itr->top)->__head.p[1]; \
 			return 1; \
+		} else { /* go up */ \
+			do { \
+				p = *itr->top--; \
+			} while (itr->top >= itr->stack && p == (*itr->top)->__head.p[dir]); \
+			return itr->top < itr->stack? 0 : 1; \
 		} \
-	}
+	} \
 
 /**
  * Insert a node to the tree
@@ -332,6 +344,7 @@ int main(void) {
  * @return node equal to _x_ if present, or NULL if absent
  */
 #define kavl_find(suf, root, x, cnt) kavl_find_##suf(root, x, cnt)
+#define kavl_interval(suf, root, x, lower, upper) kavl_interval_##suf(root, x, lower, upper)
 
 /**
  * Delete a node from the tree
@@ -376,7 +389,8 @@ int main(void) {
  *
  * @return 1 if there is a next object; 0 otherwise
  */
-#define kavl_itr_next(suf, itr) kavl_itr_next_##suf(itr)
+#define kavl_itr_next(suf, itr) kavl_itr_next_bidir_##suf(itr, 1)
+#define kavl_itr_prev(suf, itr) kavl_itr_next_bidir_##suf(itr, 0)
 
 /**
  * Return the pointer at the iterator
