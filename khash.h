@@ -189,7 +189,11 @@ typedef khint_t khiter_t;
 #define kfree(P) free(P)
 #endif
 
-static const double __ac_HASH_UPPER = 0.77;
+#ifndef kfloat
+typedef double kfloat;
+#endif
+
+static const kfloat __ac_HASH_UPPER = 0.77;
 
 #define __KHASH_TYPE(name, khkey_t, khval_t) \
 	typedef struct kh_##name##_s { \
