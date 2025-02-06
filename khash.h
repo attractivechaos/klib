@@ -202,6 +202,7 @@ static const double __ac_HASH_UPPER = 0.77;
 #define __KHASH_PROTOTYPES(name, khkey_t, khval_t)	 					\
 	extern kh_##name##_t *kh_init_##name(void);							\
 	extern void kh_destroy_##name(kh_##name##_t *h);					\
+	extern void kh_reset_##name(kh_##name##_t *h);						\
 	extern void kh_clear_##name(kh_##name##_t *h);						\
 	extern khint_t kh_get_##name(const kh_##name##_t *h, khkey_t key); 	\
 	extern int kh_resize_##name(kh_##name##_t *h, khint_t new_n_buckets); \
@@ -220,6 +221,14 @@ static const double __ac_HASH_UPPER = 0.77;
 			kfree(h);													\
 		}																\
 	}																	\
+	SCOPE void kh_reset_##name(kh_##name##_t *h)		\
+	{							\
+		if (h) {					\
+			kfree(h->keys); kfree(h->flags);	\
+			kfree(h->vals);				\
+			memset(h, 0x00, sizeof(*h));		\
+		}						\
+	}							\
 	SCOPE void kh_clear_##name(kh_##name##_t *h)						\
 	{																	\
 		if (h && h->flags) {											\
@@ -446,6 +455,13 @@ static kh_inline khint_t __ac_Wang_hash(khint_t key)
 #define kh_destroy(name, h) kh_destroy_##name(h)
 
 /*! @function
+  @abstract     Reset a hash table to initial state deallocating memory.
+  @param  name  Name of the hash table [symbol]
+  @param  h     Pointer to the hash table [khash_t(name)*]
+ */
+#define kh_reset(name, h) kh_reset_##name(h)
+
+/*! @function
   @abstract     Reset a hash table without deallocating memory.
   @param  name  Name of the hash table [symbol]
   @param  h     Pointer to the hash table [khash_t(name)*]
@@ -561,6 +577,19 @@ static kh_inline khint_t __ac_Wang_hash(khint_t key)
 		(kvar) = kh_key(h,__i);								\
 		(vvar) = kh_val(h,__i);								\
 		code;												\
+	} }
+
+/*! @function
+  @abstract     Iterate over the keys in the hash table
+  @param  h     Pointer to the hash table [khash_t(name)*]
+  @param  kvar  Variable to which key will be assigned
+  @param  code  Block of code to execute
+ */
+#define kh_foreach_key(h, kvar, code) { khint_t __i;		\
+	for (__i = kh_begin(h); __i != kh_end(h); ++__i) {	\
+		if (!kh_exist(h,__i)) continue;			\
+		(kvar) = kh_key(h,__i);				\
+		code;						\
 	} }
 
 /*! @function
