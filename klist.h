@@ -54,7 +54,9 @@
 	SCOPE kmptype_t *kmp_alloc_##name(kmp_##name##_t *mp) {				\
 		++mp->cnt;														\
 		if (mp->n == 0) return calloc(1, sizeof(kmptype_t));			\
-		return mp->buf[--mp->n];										\
+		mp->n--;														\
+		kmpfree_f(mp->buf[mp->n]);										\
+		return mp->buf[mp->n];											\
 	}																	\
 	SCOPE void kmp_free_##name(kmp_##name##_t *mp, kmptype_t *p) {		\
 		--mp->cnt;														\
@@ -97,7 +99,8 @@
 		kl1_##name *p;													\
 		for (p = kl->head; p != kl->tail; p = p->next)					\
 			kmp_free(name, kl->mp, p);									\
-		kmp_free(name, kl->mp, p);										\
+		free(p);														\
+		kl->mp->cnt--;													\
 		kmp_destroy(name, kl->mp);										\
 		free(kl);														\
 	}																	\
