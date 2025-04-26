@@ -6,7 +6,7 @@
 #define Calloc(type, cnt)       ((type*)calloc((cnt), sizeof(type)))
 #define Realloc(type, ptr, cnt) ((type*)realloc((ptr), (cnt) * sizeof(type)))
 
-typedef struct {
+typedef struct kmempool_s {
 	uint32_t sz; // size of an entry
 	uint32_t chunk_size; // number of entries in a chunk
 	uint32_t n_chunk; // number of chunks
@@ -25,7 +25,7 @@ static void kmp_add_chunk(kmempool_t *mp) // add a new chunk
 	mp->p_end = mp->p + x;
 }
 
-void *kmp_init2(unsigned sz, unsigned chunk_size)
+kmempool_t *kmp_init2(unsigned sz, unsigned chunk_size)
 {
 	kmempool_t *mp;
 	mp = Calloc(kmempool_t, 1);
@@ -34,23 +34,21 @@ void *kmp_init2(unsigned sz, unsigned chunk_size)
 	return mp;
 }
 
-void *kmp_init(unsigned sz) // fixed chunk size
+kmempool_t *kmp_init(unsigned sz) // fixed chunk size
 {
 	return kmp_init2(sz, 0x10000);
 }
 
-void kmp_destroy(void *mp_)
+void kmp_destroy(kmempool_t *mp)
 {
-	kmempool_t *mp = (kmempool_t*)mp_;
 	uint32_t i;
 	for (i = 0; i < mp->n_chunk; ++i) // free all chunks
 		free(mp->chunk[i]);
 	free(mp->chunk); free(mp->buf); free(mp);
 }
 
-void *kmp_alloc(void *mp_)
+void *kmp_alloc(kmempool_t *mp)
 {
-	kmempool_t *mp = (kmempool_t*)mp_;
 	void *ret;
 	if (mp->n_buf > 0) { // there are buffered free entries
 		ret = mp->buf[--mp->n_buf];
@@ -62,9 +60,8 @@ void *kmp_alloc(void *mp_)
 	return ret;
 }
 
-void kmp_free(void *mp_, void *p)
+void kmp_free(kmempool_t *mp, void *p)
 {
-	kmempool_t *mp = (kmempool_t*)mp_;
 	if (mp->n_buf == mp->m_buf) { // then enlarge the buffer
 		mp->m_buf += (mp->m_buf>>1) + 16;
 		mp->buf = Realloc(void*, mp->buf, mp->m_buf);
