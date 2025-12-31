@@ -64,6 +64,8 @@ extern "C" {
 
 	int ksw_extend(int qlen, const uint8_t *query, int tlen, const uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int w, int h0, int *_qle, int *_tle);
 	int ksw_global(int qlen, const uint8_t *query, int tlen, const uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int w, int *_n_cigar, uint32_t **_cigar);
+    int ksw_global_end(int qlen, const uint8_t *query, int tlen, const uint8_t *target, int m, const int8_t *mat,
+					   int gapo, int gape, int w, int *n_cigar_, uint32_t **cigar_, int s_q, int e_q, int s_t, int e_t);
 
 #ifdef __cplusplus
 }
