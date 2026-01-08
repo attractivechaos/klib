@@ -143,13 +143,13 @@ typedef unsigned long khint64_t;
 typedef unsigned long long khint64_t;
 #endif
 
-#ifndef kh_inline
+#ifndef klib_inline
 #ifdef _MSC_VER
-#define kh_inline __inline
+#define klib_inline __inline
 #else
-#define kh_inline inline
+#define klib_inline inline
 #endif
-#endif /* kh_inline */
+#endif /* klib_inline */
 
 #ifndef klib_unused
 #if (defined __clang__ && __clang_major__ >= 3) || (defined __GNUC__ && __GNUC__ >= 3)
@@ -363,7 +363,7 @@ static const double __ac_HASH_UPPER = 0.77;
 	__KHASH_IMPL(name, SCOPE, khkey_t, khval_t, kh_is_map, __hash_func, __hash_equal)
 
 #define KHASH_INIT(name, khkey_t, khval_t, kh_is_map, __hash_func, __hash_equal) \
-	KHASH_INIT2(name, static kh_inline klib_unused, khkey_t, khval_t, kh_is_map, __hash_func, __hash_equal)
+	KHASH_INIT2(name, static klib_inline klib_unused, khkey_t, khval_t, kh_is_map, __hash_func, __hash_equal)
 
 /* --- BEGIN OF HASH FUNCTIONS --- */
 
@@ -392,7 +392,7 @@ static const double __ac_HASH_UPPER = 0.77;
   @param  s     Pointer to a null terminated string
   @return       The hash value
  */
-static kh_inline khint_t __ac_X31_hash_string(const char *s)
+static klib_inline khint_t __ac_X31_hash_string(const char *s)
 {
 	khint_t h = (khint_t)*s;
 	if (h) for (++s ; *s; ++s) h = (h << 5) - h + (khint_t)*s;
@@ -409,7 +409,7 @@ static kh_inline khint_t __ac_X31_hash_string(const char *s)
  */
 #define kh_str_hash_equal(a, b) (strcmp(a, b) == 0)
 
-static kh_inline khint_t __ac_Wang_hash(khint_t key)
+static klib_inline khint_t __ac_Wang_hash(khint_t key)
 {
     key += ~(key << 15);
     key ^=  (key >> 10);
