@@ -210,7 +210,7 @@ typedef struct __kstring_t {
 		} \
 		while ((c = ks_getc(ks)) >= 0 && c != '\n'); /* skip the rest of '+' line */ \
 		if (c == -1) return -2; /* error: no quality string */ \
-		while ((c = ks_getuntil2(ks, KS_SEP_LINE, &seq->qual, 0, 1) >= 0 && seq->qual.l < seq->seq.l)); \
+		while ((c = ks_getuntil2(ks, KS_SEP_LINE, &seq->qual, 0, 1)) >= 0 && seq->qual.l < seq->seq.l); \
 		if (c == -3) return -3; /* stream error */ \
 		seq->last_char = 0;	/* we have not come to the next header line */ \
 		if (seq->seq.l != seq->qual.l) return -2; /* error: qual string is of a different length */ \
