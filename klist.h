@@ -108,13 +108,16 @@
 		return &q->data;												\
 	}																	\
 	SCOPE int kl_shift_##name(kl_##name##_t *kl, kltype_t *d) {			\
-		kl1_##name *p;													\
 		if (kl->head->next == 0) return -1;								\
 		--kl->size;														\
-		p = kl->head; kl->head = kl->head->next;						\
+		kl1_##name *p = kl->head; kl->head = kl->head->next;			\
 		if (d) *d = p->data;											\
 		kmp_free(name, kl->mp, p);										\
 		return 0;														\
+	}																	\
+	SCOPE int kl_size_##name(kl_##name##_t *kl) {						\
+		if (kl == 0 || kl->head->next == 0) return 0;					\
+		 return kl->size;												\
 	}
 
 #define KLIST_INIT(name, kltype_t, kmpfree_t)							\
@@ -131,5 +134,6 @@
 #define kl_destroy(name, kl) kl_destroy_##name(kl)
 #define kl_pushp(name, kl) kl_pushp_##name(kl)
 #define kl_shift(name, kl, d) kl_shift_##name(kl, d)
+#define kl_size(name, kl) kl_size_##name(kl)
 
 #endif
