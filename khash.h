@@ -293,8 +293,14 @@ static const double __ac_HASH_UPPER = 0.77;
 				}														\
 			}															\
 			if (h->n_buckets > new_n_buckets) { /* shrink the hash table */ \
-				h->keys = (khkey_t*)krealloc((void *)h->keys, new_n_buckets * sizeof(khkey_t)); \
-				if (kh_is_map) h->vals = (khval_t*)krealloc((void *)h->vals, new_n_buckets * sizeof(khval_t)); \
+				khkey_t *new_keys = (khkey_t*)krealloc((void *)h->keys, new_n_buckets * sizeof(khkey_t)); \
+				if (!new_keys) { kfree(new_flags); return -1; }			\
+				h->keys = new_keys;										\
+				if (kh_is_map) {										\
+					khval_t *new_vals = (khval_t*)krealloc((void *)h->vals, new_n_buckets * sizeof(khval_t)); \
+					if (!new_vals) { kfree(new_flags); return -1; }		\
+					h->vals = new_vals;									\
+				}														\
 			}															\
 			kfree(h->flags); /* free the working space */				\
 			h->flags = new_flags;										\
