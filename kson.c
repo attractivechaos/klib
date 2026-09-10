@@ -66,7 +66,11 @@ kson_node_t *kson_parse_core(const char *json, long *_n, int *error, long *parse
 			u->type = *p == ']'? KSON_TYPE_BRACKET : KSON_TYPE_BRACE;
 			if ((top = start) == 1) break; // completed one object; remaining characters discarded
 		} else if (*p == ':') {
-			if (top == 0 || stack[top-1] == -3) {
+			// stack[top-1] must be the index of a plain node holding the
+			// pending key; if it is a container marker (-1 for '[', -2 for
+			// '{') or another pending colon (-3), the colon has nothing to
+			// attach to, e.g. in "[:0]" the colon directly follows '['
+			if (top == 0 || stack[top-1] < 0) {
 				*error = KSON_ERR_NO_KEY;
 				break;
 			}
